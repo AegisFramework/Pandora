@@ -1,0 +1,50 @@
+{
+	"name": "@aegis-framework/pandora",
+	"version": "0.1.0",
+	"description": "Aegis Framework Web Components Library",
+	"main": "./dist/pandora.min.js",
+	"module": "./dist/pandora.js",
+	"repository": {
+		"type": "git",
+		"url": "https://gitlab.com/AegisFramework/Pandora.git"
+	},
+	"bugs": {
+		"url": "https://gitlab.com/AegisFramework/Pandora/issues"
+	},
+	"homepage": "https://aegisframework.com/",
+	"author": "Diego Islas Ocampo <dev@hyuchia.com>",
+	"license": "MIT",
+	"keywords": [
+		"pandora",
+		"dom",
+		"web",
+		"component",
+		"shadow",
+		"javascript",
+		"library"
+	],
+	"scripts": {
+		"eslint": "eslint index.js src",
+		"jsdoc": "jsdoc ./src -c ./.jsdoc.json && jsdoc2md -f ./src/* -c ./.jsdoc.json >> ./docs/README.md",
+		"build": "parcel build ./index.js --global Pandora --out-file pandora.js --no-minify --no-cache --public-url . && parcel build ./index.js --global Pandora --out-file pandora.min.js --no-cache --public-url .",
+		"watch": "parcel watch ./index.js --global Pandora --out-file pandora.min.js --no-cache --public-url ."
+	},
+	"devDependencies": {
+		"@babel/core": "^7.0.0-0",
+		"@babel/plugin-proposal-class-properties": "^7.4.0",
+		"@babel/plugin-proposal-object-rest-spread": "^7.4.4",
+		"@babel/plugin-syntax-object-rest-spread": "^7.0.0",
+		"eslint": "^5.16.0",
+		"jsdoc": "^3.5.5",
+		"jsdoc-to-markdown": "^5.0.0",
+		"parcel": "^1.12.3"
+	},
+	"files": [
+		"index.js",
+		"src/*",
+		"dist/*"
+	],
+	"browserslist": [
+		"> 5%"
+	]
+}
