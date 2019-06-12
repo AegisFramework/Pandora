@@ -8,7 +8,13 @@ import { callAsync } from './Util';
  */
 export class Component extends HTMLElement {
 
+	/**
+	 * _tag {String} - The tag name for the component
+	 *
+	 * @static
+	 */
 	static _tag;
+
 
 	static get tag () {
 		if (typeof this._tag === 'undefined') {
@@ -28,13 +34,6 @@ export class Component extends HTMLElement {
 		this._tag = value;
 	}
 
-	/**
-	 * Whether or not this component was already registered.
-	 *
-	 * @static
-	 */
-	static _registered = false;
-
 	static _explicitPropTypes = ['boolean', 'string', 'number'];
 
 	/**
@@ -44,91 +43,10 @@ export class Component extends HTMLElement {
 	 */
 	static _template = undefined;
 
-	/**
-	 * Each component can define its initial HTML structure, which should be used on
-	 * the setup or rendering functions of the cycle, adding to the DOM.
-	*/
-	static _html = '';
-
-	/**
-	 * If needed, every component should declare its configuration as follows. This
-	 * configuration object should be used to store component-specific settings as well
-	 * as other objects/assets used by the component.
-	 */
-	static _configuration = {};
-
-	/**
-	 * @static configuration - A simple function providing access to the configuration
-	 * object of the function. If the component has a configuration object it must
-	 * also include this method.
-	 *
-	 * @param  {Object|string} [object = null] - Object with which current
-	 * configuration will be updated with (i.e. Object.assign) or a string to access
-	 * a property.
-	 *
-	 * @return {any} - If the parameter sent was a string, the function will
-	 * return the value of the property whose tag matches the parameter. If no
-	 * parameter was sent, then the function will return the whole configuration
-	 * object.
-	 */
-	static configuration (object = null) {
-		if (object !== null) {
-			if (typeof object === 'string') {
-				return this._configuration[object];
-			} else {
-				this._configuration = Object.assign ({}, this._configuration, object);
-				this.onConfigurationUpdate ().then (() => {
-					this.onUpdate ();
-				});
-			}
-		} else {
-			return this._configuration;
-		}
-	}
-
-	/**
-	 * @static onConfigurationUpdate - Every time the configuration object is
-	 * changed through the configuration () method, this function will be called.
-	 * Ideal for components that need to update their UI or other things when their
-	 * configuration is changed.
-	 *
-	 * @return {Promise} - Result of the onConfigurationUpdate operation.
-	 */
-	static onConfigurationUpdate () {
-		return Promise.resolve ();
-	}
-
-	/**
-	 * @static all - Get all the instances of this kind of element.
-	 *
-	 * @returns {Array<Component>} - List of all the components
-	 */
-	static all () {
-		return document.querySelectorAll (this.tag);
-	}
-
-	static get (id) {
-		return document.querySelector (`${this.tag} [data-instance="${id}"]`);
-	}
-
-	static instances (callback = null) {
-		if (typeof callback === 'function') {
-			document.querySelectorAll (this.tag).forEach (callback);
-		} else {
-			return document.querySelectorAll (this.tag);
-		}
-	}
-
-	instance (id) {
-		return document.querySelector (`${this.static.tag}[data-${this.static.tag}="${id}"`);
-	}
-
-
-
 	static template (html = null, context = null) {
 		if (html !== null) {
 			this._template = html;
-			this.instances ((instance) => {
+			document.querySelectorAll(this.tagName).forEach((instance) => {
 				if (instance._isReady) {
 					instance.forceRender ();
 				}
@@ -143,23 +61,6 @@ export class Component extends HTMLElement {
 			// If this is reached, the HTML was just a string
 			return this._template;
 		}
-	}
-
-	static register () {
-		window.customElements.define (this.tag, this);
-		this._registered = true;
-	}
-
-
-	static instantiate (props) {
-		if (this._registered === false) {
-			this.register ();
-		}
-
-		const element = document.createElement (this.tag);
-		element._setProps (props);
-
-		return element;
 	}
 
 	constructor () {
@@ -184,7 +85,7 @@ export class Component extends HTMLElement {
 	 * @return {int} - Computed Width of the element on pixels
 	 */
 	get width () {
-		return parseInt (getComputedStyle(this).width.replace ('px', ''));
+		return parseInt (getComputedStyle (this).width.replace ('px', ''));
 	}
 
 	set width (value) {
