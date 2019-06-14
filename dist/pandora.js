@@ -124,6 +124,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.callAsync = callAsync;
+exports.deserializeCSS = deserializeCSS;
 
 function callAsync(callable, context, ...args) {
   try {
@@ -138,6 +139,40 @@ function callAsync(callable, context, ...args) {
   } catch (e) {
     return Promise.reject(e);
   }
+}
+
+function deserializeCSS(object, level = 0) {
+  const keys = Object.keys(object);
+  let css = '';
+
+  for (const key of keys) {
+    console.log(key);
+
+    if (typeof object[key] === 'object') {
+      css += `${key} {\n`;
+      const properties = Object.keys(object[key]);
+
+      for (const property of properties) {
+        console.log(object[key][property]);
+        css += '\t'.repeat(level);
+
+        if (typeof object[key][property] === 'object') {
+          const temp = {};
+          temp[property] = object[key][property];
+          css += deserializeCSS(temp, level + 1);
+        } else {
+          css += `\t${property}: ${object[key][property]};\n`;
+        }
+      }
+
+      css += '}\n';
+    } else {
+      css += '\t'.repeat(level);
+      css += `\t${key}: ${object[key]};\n`;
+    }
+  }
+
+  return css;
 }
 },{}],"Simw":[function(require,module,exports) {
 "use strict";
@@ -567,10 +602,20 @@ class ShadowComponent extends _Component.Component {
   }
 
   _render() {
-    return (0, _Util.callAsync)(this.render, this).then(html => {
+    let render = this.render; // Check if a template has been set to this component, and if that's the
+    // case, use that instead of the render function to render the component's
+    // HTML code.
+
+    if (this.static._template !== null) {
+      render = this.template;
+    } // Call the render function asynchronously and set the HTML from it to the
+    // component.
+
+
+    return (0, _Util.callAsync)(render, this).then(html => {
       const div = document.createElement('div');
 
-      if (typeof element === 'string') {
+      if (typeof html === 'string') {
         div.innerHTML = html.trim();
       } else {
         div.innerHTML = html;
@@ -580,12 +625,23 @@ class ShadowComponent extends _Component.Component {
     });
   }
 
-  style(style) {
-    if (typeof style !== 'undefined') {
-      this._style = Object.assign({}, this._style, style);
+  style(style, reset = false) {
+    if (typeof style === 'object') {
+      if (reset === false) {
+        this._style = Object.assign({}, this._style, style);
+      } else {
+        this._style = Object.assign({}, style);
+      }
+
+      this._styleElement.innerHTML = (0, _Util.deserializeCSS)(this._style);
+    } else if (typeof style === 'string') {
+      if (reset === false) {
+        this._styleElement.innerHTML += style;
+      } else {
+        this._styleElement.innerHTML = style;
+      }
     }
 
-    this._styleElement.innerText = JSON.parse(this._style);
     return this._style;
   }
 

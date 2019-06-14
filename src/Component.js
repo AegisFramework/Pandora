@@ -15,7 +15,6 @@ export class Component extends HTMLElement {
 	 */
 	static _tag;
 
-
 	static get tag () {
 		if (typeof this._tag === 'undefined') {
 			let tag = this.name;

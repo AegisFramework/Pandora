@@ -55,6 +55,7 @@
 	<body>
 		<h1>Pandora Test</h1>
 		<custom-element></custom-element>
+		<custom-shadow-element></custom-shadow-element>
 
 		<template id="custom-element">
 			<h2>This is from a template!</h2>
@@ -83,6 +84,41 @@
 
 			element.setProps ( {
 				text: 'Hello World!'
+			});
+
+
+			class CustomShadowElement extends Pandora.ShadowComponent {
+				constructor () {
+					super ();
+					this.props = {
+						text: ''
+					};
+				}
+
+				render () {
+					return `<h2>${this.props.text}</h2>`;
+				}
+			}
+
+			console.log (CustomShadowElement.tag);
+
+			window.customElements.define (CustomShadowElement.tag, CustomShadowElement);
+
+			const shadowElement = document.querySelector (CustomShadowElement.tag);
+
+			shadowElement.setProps ( {
+				text: 'Hello World!'
+			});
+
+			shadowElement.style ({
+				h2: {
+					color: '#eee'
+				},
+				'@media screen and (min-width: 62em)': {
+					h2: {
+						color: 'black'
+					}
+				}
 			});
 		</script>
 	</body>

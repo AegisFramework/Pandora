@@ -1,5 +1,5 @@
 import { Component } from './Component';
-import { callAsync } from './Util';
+import { callAsync, deserializeCSS } from './Util';
 
 export class ShadowComponent extends Component {
 	constructor (...props) {
@@ -15,9 +15,20 @@ export class ShadowComponent extends Component {
 	}
 
 	_render () {
-		return callAsync (this.render, this).then ((html) => {
+		let render = this.render;
+
+		// Check if a template has been set to this component, and if that's the
+		// case, use that instead of the render function to render the component's
+		// HTML code.
+		if (this.static._template !== null) {
+			render = this.template;
+		}
+
+		// Call the render function asynchronously and set the HTML from it to the
+		// component.
+		return callAsync (render, this).then ((html) => {
 			const div = document.createElement ('div');
-			if (typeof element === 'string') {
+			if (typeof html === 'string') {
 				div.innerHTML = html.trim ();
 			} else {
 				div.innerHTML = html;
@@ -26,12 +37,21 @@ export class ShadowComponent extends Component {
 		});
 	}
 
-	style (style) {
-		if (typeof style !== 'undefined') {
-			this._style = Object.assign ({}, this._style, style);
+	style (style, reset = false) {
+		if (typeof style === 'object') {
+			if (reset === false) {
+				this._style = Object.assign ({}, this._style, style);
+			} else {
+				this._style = Object.assign ({}, style);
+			}
+			this._styleElement.innerHTML = deserializeCSS (this._style);
+		} else if (typeof style === 'string') {
+			if (reset === false) {
+				this._styleElement.innerHTML += style;
+			} else {
+				this._styleElement.innerHTML = style;
+			}
 		}
-
-		this._styleElement.innerText = JSON.parse (this._style);
 
 		return this._style;
 	}

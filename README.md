@@ -39,3 +39,10 @@ element.setProps ( {
 });
 
 ```
+
+## Documentation
+You can find alll the documentation for this library at [https://developers.aegisframework.com/pandora/](https://developers.aegisframework.com/pandora/)
+
+
+## License
+This library is released under a [MIT License](./LICENSE)
