@@ -160,6 +160,14 @@ export class Component extends HTMLElement {
 		}
 	}
 
+	get dom () {
+		return this;
+	}
+
+	set dom (value) {
+		throw new Error ('Component DOM can not be overwritten.');
+	}
+
 	/**
 	 * template - A simple function providing access to the basic HTML
 	 * structure of the component.
@@ -197,18 +205,24 @@ export class Component extends HTMLElement {
 			for (const key of Object.keys (props)) {
 				this.updateCallback (key, oldProps[key], this._props[key], 'props', oldProps, this._props);
 			}
-			this._setPropAttributes ();
+			this._setPropAttributes (true);
 		} else {
 			throw new TypeError(`Props must be an object. Received ${typeof state}.`)
 		}
 	}
 
-	_setPropAttributes () {
-		for (const key of Object.keys (this.props)) {
-			const value = this.props[key];
-
+	_setPropAttributes (update = false) {
+		for (const key of Object.keys (this._props)) {
+			const value = this._props[key];
+			console.log (key, value);
 			if (this.static._explicitPropTypes.indexOf (typeof value) > -1) {
-				this.setAttribute (key, this.props[key]);
+				if (update === true) {
+					this.setAttribute (key, this._props[key]);
+				} else {
+					this._props[key] = this.props[key];
+					this.setAttribute (key, this.props[key]);
+				}
+
 			}
 		}
 	}
@@ -348,6 +362,7 @@ export class Component extends HTMLElement {
 		return this.willMount ().then (() => {
 			return this._render ().then (() => {
 				return this.didMount ().then (() => {
+
 					this._isReady = true;
 					for (const callback of this._ready) {
 						callback.call (this);
@@ -395,6 +410,6 @@ export class Component extends HTMLElement {
 	}
 
 	attributeChangedCallback (property, oldValue, newValue) {
-
+		console.log (property, oldValue, newValue);
 	}
 }

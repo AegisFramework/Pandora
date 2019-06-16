@@ -27,17 +27,17 @@ export class ShadowComponent extends Component {
 		// Call the render function asynchronously and set the HTML from it to the
 		// component.
 		return callAsync (render, this).then ((html) => {
-			const div = document.createElement ('div');
-			if (typeof html === 'string') {
-				div.innerHTML = html.trim ();
-			} else {
-				div.innerHTML = html;
-			}
-			this._shadowDOM.appendChild (div.firstChild);
+			this._shadowDOM.innerHTML = '';
+			this._shadowDOM.appendChild (this._styleElement);
+			this._shadowDOM.innerHTML += html;
 		});
 	}
 
-	style (style, reset = false) {
+	get dom () {
+		return this._shadowDOM;
+	}
+
+	setStyle (style, reset = false) {
 		if (typeof style === 'object') {
 			if (reset === false) {
 				this._style = Object.assign ({}, this._style, style);

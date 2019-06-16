@@ -333,6 +333,14 @@ class Component extends HTMLElement {
       throw new Error('Component state should be set using the `setState` function instead.');
     }
   }
+
+  get dom() {
+    return this;
+  }
+
+  set dom(value) {
+    throw new Error('Component DOM can not be overwritten.');
+  }
   /**
    * template - A simple function providing access to the basic HTML
    * structure of the component.
@@ -370,18 +378,24 @@ class Component extends HTMLElement {
         this.updateCallback(key, oldProps[key], this._props[key], 'props', oldProps, this._props);
       }
 
-      this._setPropAttributes();
+      this._setPropAttributes(true);
     } else {
       throw new TypeError(`Props must be an object. Received ${typeof state}.`);
     }
   }
 
-  _setPropAttributes() {
-    for (const key of Object.keys(this.props)) {
-      const value = this.props[key];
+  _setPropAttributes(update = false) {
+    for (const key of Object.keys(this._props)) {
+      const value = this._props[key];
+      console.log(key, value);
 
       if (this.static._explicitPropTypes.indexOf(typeof value) > -1) {
-        this.setAttribute(key, this.props[key]);
+        if (update === true) {
+          this.setAttribute(key, this._props[key]);
+        } else {
+          this._props[key] = this.props[key];
+          this.setAttribute(key, this.props[key]);
+        }
       }
     }
   }
@@ -566,7 +580,9 @@ class Component extends HTMLElement {
     });
   }
 
-  attributeChangedCallback(property, oldValue, newValue) {}
+  attributeChangedCallback(property, oldValue, newValue) {
+    console.log(property, oldValue, newValue);
+  }
 
 }
 
@@ -613,19 +629,19 @@ class ShadowComponent extends _Component.Component {
 
 
     return (0, _Util.callAsync)(render, this).then(html => {
-      const div = document.createElement('div');
+      this._shadowDOM.innerHTML = '';
 
-      if (typeof html === 'string') {
-        div.innerHTML = html.trim();
-      } else {
-        div.innerHTML = html;
-      }
+      this._shadowDOM.appendChild(this._styleElement);
 
-      this._shadowDOM.appendChild(div.firstChild);
+      this._shadowDOM.innerHTML += html;
     });
   }
 
-  style(style, reset = false) {
+  get dom() {
+    return this._shadowDOM;
+  }
+
+  setStyle(style, reset = false) {
     if (typeof style === 'object') {
       if (reset === false) {
         this._style = Object.assign({}, this._style, style);
