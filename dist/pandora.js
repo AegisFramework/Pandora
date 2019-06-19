@@ -146,14 +146,11 @@ function deserializeCSS(object, level = 0) {
   let css = '';
 
   for (const key of keys) {
-    console.log(key);
-
     if (typeof object[key] === 'object') {
       css += `${key} {\n`;
       const properties = Object.keys(object[key]);
 
       for (const property of properties) {
-        console.log(object[key][property]);
         css += '\t'.repeat(level);
 
         if (typeof object[key][property] === 'object') {
@@ -387,7 +384,6 @@ class Component extends HTMLElement {
   _setPropAttributes(update = false) {
     for (const key of Object.keys(this._props)) {
       const value = this._props[key];
-      console.log(key, value);
 
       if (this.static._explicitPropTypes.indexOf(typeof value) > -1) {
         if (update === true) {
@@ -578,9 +574,7 @@ class Component extends HTMLElement {
     });
   }
 
-  attributeChangedCallback(property, oldValue, newValue) {
-    console.log(property, oldValue, newValue);
-  }
+  attributeChangedCallback(property, oldValue, newValue) {}
 
 }
 

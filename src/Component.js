@@ -214,7 +214,6 @@ export class Component extends HTMLElement {
 	_setPropAttributes (update = false) {
 		for (const key of Object.keys (this._props)) {
 			const value = this._props[key];
-			console.log (key, value);
 			if (this.static._explicitPropTypes.indexOf (typeof value) > -1) {
 				if (update === true) {
 					this.setAttribute (key, this._props[key]);
@@ -407,6 +406,6 @@ export class Component extends HTMLElement {
 	}
 
 	attributeChangedCallback (property, oldValue, newValue) {
-		console.log (property, oldValue, newValue);
+
 	}
 }

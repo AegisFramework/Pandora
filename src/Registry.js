@@ -20,7 +20,6 @@ export class Registry {
 					return document.createElement (components[tag].tag);
 				},
 				get (target, property, receiver) {
-					console.log (target, property, receiver, components[tag]);
 					return Reflect.get (components[tag], property, receiver);
 				},
 				set (target, property, value, receiver) {

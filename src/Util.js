@@ -20,12 +20,10 @@ export function deserializeCSS (object, level = 0) {
 	let css = '';
 
 	for (const key of keys) {
-		console.log (key);
 		if (typeof object[key] === 'object') {
 			css += `${key} {\n`;
 			const properties = Object.keys (object[key]);
 			for (const property of properties) {
-				console.log (object[key][property]);
 				css += '\t'.repeat (level);
 				if (typeof object[key][property] === 'object') {
 					const temp = {};
