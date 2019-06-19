@@ -506,9 +506,7 @@ class Component extends HTMLElement {
     // Set the state as connected
     this._connected = true; // Add a data property with the tag of the component
 
-    this.dataset.component = this.static.tag; // Always add the animated class for all the components
-
-    this.classList.add('animated'); // Check if a template for this component was set. The contents on this
+    this.dataset.component = this.static.tag; // Check if a template for this component was set. The contents on this
     // if block will only be run once.
 
     if (typeof this.static._template === 'undefined') {
