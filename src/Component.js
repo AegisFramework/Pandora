@@ -33,6 +33,10 @@ export class Component extends HTMLElement {
 		this._tag = value;
 	}
 
+	/**
+	 * These are the types that can be set as properties on the HTML code of the
+	 * element.
+	 */
 	static _explicitPropTypes = ['boolean', 'string', 'number'];
 
 	/**
@@ -45,7 +49,7 @@ export class Component extends HTMLElement {
 	static template (html = null, context = null) {
 		if (html !== null) {
 			this._template = html;
-			document.querySelectorAll(this.tagName).forEach((instance) => {
+			document.querySelectorAll(this.tag).forEach((instance) => {
 				if (instance._isReady) {
 					instance.forceRender ();
 				}
@@ -324,6 +328,14 @@ export class Component extends HTMLElement {
 		// component.
 		return callAsync (render, this).then ((html) => {
 			this.innerHTML = html;
+
+			const slot = this.dom.querySelector ('slot');
+
+			if (slot !== null && this.static._template !== null) {
+				return callAsync (this.render, this).then ((originalHtml) => {
+					slot.replaceWith (originalHtml);
+				});
+			}
 		});
 	}
 
