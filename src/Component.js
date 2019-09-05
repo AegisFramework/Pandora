@@ -120,7 +120,21 @@ export class Component extends HTMLElement {
 		return new Proxy (this, {
 			get: (target, key) => {
 				if (this.hasAttribute (key)) {
-					return this.getAttribute (key);
+					let value = this.getAttribute (key);
+					if (typeof value === 'string') {
+						if (value === 'false') {
+							value = false;
+						} else if (value === 'true' || value === '') {
+							value = true;
+						} else if (!isNaN (value)) {
+							if (value.indexOf ('.') > 0) {
+								value = parseFloat (value);
+							} else {
+								value = parseInt (value);
+							}
+						}
+					}
+					return value;
 				} else if (key in this._props) {
 					return this._props[key];
 				}
@@ -170,6 +184,17 @@ export class Component extends HTMLElement {
 
 	set dom (value) {
 		throw new Error ('Component DOM can not be overwritten.');
+	}
+
+	/**
+	 * register - Register the component as a custom HTML element
+	 * using the component's tag as the actual element tag.
+	 *
+	 * This action cannot be reverted nor the controller class for
+	 * the element can be changed.
+	 */
+	static register () {
+		window.customElements.define (this.tag, this);
 	}
 
 	/**
@@ -225,7 +250,6 @@ export class Component extends HTMLElement {
 					this._props[key] = this.props[key];
 					this.setAttribute (key, this.props[key]);
 				}
-
 			}
 		}
 	}
