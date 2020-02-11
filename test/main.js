@@ -22,6 +22,15 @@ element.setProps ( {
 	text: 'Hello World!'
 });
 
+element.setStyle ({
+	h2: {
+		color: 'blue'
+	},
+	'&:nth-child(4) h2': {
+		color: 'red'
+	}
+});
+
 
 class CustomShadowElement extends Pandora.ShadowComponent {
 	constructor () {

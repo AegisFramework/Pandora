@@ -1,4 +1,4 @@
-import { callAsync } from './Util';
+import { callAsync, deserializeCSS } from './Util';
 
 /**
  * A component represents a custom HTML element, and has all of its functionality
@@ -80,6 +80,10 @@ export class Component extends HTMLElement {
 
 		this._connected = false;
 		this._isReady = false;
+
+		this._style = {};
+
+		this._styleElement = null;
 	}
 
 	/**
@@ -210,6 +214,40 @@ export class Component extends HTMLElement {
 		return this.static.template (html, this);
 	}
 
+	_createStyleElement () {
+		const sharedStyle = document.body.querySelector (`style#${this.static.tag}`);
+
+		if (sharedStyle !== null) {
+			this._styleElement = sharedStyle;
+		}
+
+		if (!(this._styleElement instanceof HTMLStyleElement)) {
+			this._styleElement = document.createElement ('style');
+			this._styleElement.id = this.static.tag;
+			document.body.prepend (this._styleElement);
+		}
+	}
+
+	setStyle (style, reset = false) {
+		this._createStyleElement ();
+
+		if (typeof style === 'object') {
+			if (reset === false) {
+				this._style = Object.assign ({}, this._style, style);
+			} else {
+				this._style = Object.assign ({}, style);
+			}
+			this._styleElement.innerHTML = deserializeCSS (this._style, this.static.tag);
+		} else if (typeof style === 'string') {
+			if (reset === false) {
+				this._styleElement.innerHTML += style;
+			} else {
+				this._styleElement.innerHTML = style;
+			}
+		}
+
+		return this._style;
+	}
 
 	setState (state) {
 		if (typeof state === 'object') {

@@ -1,17 +1,18 @@
 import { Component } from './Component';
-import { callAsync, deserializeCSS } from './Util';
+import { callAsync } from './Util';
 
 export class ShadowComponent extends Component {
 	constructor (...props) {
 		super (...props);
 
-		this._style = {};
-
 		this._shadowDOM = this.attachShadow ({ mode: 'open' });
+	}
 
-		this._styleElement = document.createElement ('style');
-
-		this._shadowDOM.appendChild (this._styleElement);
+	_createStyleElement () {
+		if (!(this._styleElement instanceof HTMLStyleElement)) {
+			this._styleElement = document.createElement ('style');
+			this.dom.appendChild (this._styleElement);
+		}
 	}
 
 	_render () {
@@ -37,22 +38,5 @@ export class ShadowComponent extends Component {
 		return this._shadowDOM;
 	}
 
-	setStyle (style, reset = false) {
-		if (typeof style === 'object') {
-			if (reset === false) {
-				this._style = Object.assign ({}, this._style, style);
-			} else {
-				this._style = Object.assign ({}, style);
-			}
-			this._styleElement.innerHTML = deserializeCSS (this._style);
-		} else if (typeof style === 'string') {
-			if (reset === false) {
-				this._styleElement.innerHTML += style;
-			} else {
-				this._styleElement.innerHTML = style;
-			}
-		}
 
-		return this._style;
-	}
 }

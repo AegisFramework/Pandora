@@ -141,13 +141,22 @@ function callAsync(callable, context, ...args) {
   }
 }
 
-function deserializeCSS(object, level = 0) {
+function deserializeCSS(object, encapsulation = '', level = 0) {
   const keys = Object.keys(object);
   let css = '';
 
   for (const key of keys) {
     if (typeof object[key] === 'object') {
-      css += `${key} {\n`;
+      if (encapsulation) {
+        if (key.indexOf('&') === 0) {
+          css += `${key.replace(/&/g, encapsulation)} {\n`;
+        } else {
+          css += `${encapsulation} ${key} {\n`;
+        }
+      } else {
+        css += `${key} {\n`;
+      }
+
       const properties = Object.keys(object[key]);
 
       for (const property of properties) {
@@ -156,7 +165,7 @@ function deserializeCSS(object, level = 0) {
         if (typeof object[key][property] === 'object') {
           const temp = {};
           temp[property] = object[key][property];
-          css += deserializeCSS(temp, level + 1);
+          css += deserializeCSS(temp, encapsulation, level + 1);
         } else {
           css += `\t${property}: ${object[key][property]};\n`;
         }
@@ -250,6 +259,8 @@ class Component extends HTMLElement {
     this._ready = [];
     this._connected = false;
     this._isReady = false;
+    this._style = {};
+    this._styleElement = null;
   }
   /**
    * width - Determines the real (computed) width of the element
@@ -384,6 +395,42 @@ class Component extends HTMLElement {
 
   template(html = null) {
     return this.static.template(html, this);
+  }
+
+  _createStyleElement() {
+    const sharedStyle = document.body.querySelector(`style#${this.static.tag}`);
+
+    if (sharedStyle !== null) {
+      this._styleElement = sharedStyle;
+    }
+
+    if (!(this._styleElement instanceof HTMLStyleElement)) {
+      this._styleElement = document.createElement('style');
+      this._styleElement.id = this.static.tag;
+      document.body.prepend(this._styleElement);
+    }
+  }
+
+  setStyle(style, reset = false) {
+    this._createStyleElement();
+
+    if (typeof style === 'object') {
+      if (reset === false) {
+        this._style = Object.assign({}, this._style, style);
+      } else {
+        this._style = Object.assign({}, style);
+      }
+
+      this._styleElement.innerHTML = (0, _Util.deserializeCSS)(this._style, this.static.tag);
+    } else if (typeof style === 'string') {
+      if (reset === false) {
+        this._styleElement.innerHTML += style;
+      } else {
+        this._styleElement.innerHTML = style;
+      }
+    }
+
+    return this._style;
   }
 
   setState(state) {
@@ -527,13 +574,26 @@ class Component extends HTMLElement {
 
 
     return (0, _Util.callAsync)(render, this).then(html => {
-      this.innerHTML = html;
       const slot = this.dom.querySelector('slot');
+      const currentContent = this.innerHTML;
 
-      if (slot !== null && this.static._template !== null) {
-        return (0, _Util.callAsync)(this.render, this).then(originalHtml => {
-          slot.replaceWith(originalHtml);
-        });
+      if (typeof html === 'string') {
+        html = html.trim();
+
+        if (html === '') {
+          return;
+        }
+      }
+
+      if (html === null || typeof html === 'undefined') {
+        return;
+      }
+
+      if (slot !== null) {
+        slot.replaceWith(html);
+      } else {
+        this.innerHTML = html;
+        this.innerHTML += currentContent;
       }
     });
   }
@@ -625,7 +685,7 @@ _defineProperty(Component, "_tag", void 0);
 _defineProperty(Component, "_explicitPropTypes", ['boolean', 'string', 'number']);
 
 _defineProperty(Component, "_template", undefined);
-},{"./Util":"yzgE"}],"9Lec":[function(require,module,exports) {
+},{"./Util":"yzgE"}],"Lecv":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -640,13 +700,16 @@ var _Util = require("./Util");
 class ShadowComponent extends _Component.Component {
   constructor(...props) {
     super(...props);
-    this._style = {};
     this._shadowDOM = this.attachShadow({
       mode: 'open'
     });
-    this._styleElement = document.createElement('style');
+  }
 
-    this._shadowDOM.appendChild(this._styleElement);
+  _createStyleElement() {
+    if (!(this._styleElement instanceof HTMLStyleElement)) {
+      this._styleElement = document.createElement('style');
+      this.dom.appendChild(this._styleElement);
+    }
   }
 
   _render() {
@@ -671,26 +734,6 @@ class ShadowComponent extends _Component.Component {
 
   get dom() {
     return this._shadowDOM;
-  }
-
-  setStyle(style, reset = false) {
-    if (typeof style === 'object') {
-      if (reset === false) {
-        this._style = Object.assign({}, this._style, style);
-      } else {
-        this._style = Object.assign({}, style);
-      }
-
-      this._styleElement.innerHTML = (0, _Util.deserializeCSS)(this._style);
-    } else if (typeof style === 'string') {
-      if (reset === false) {
-        this._styleElement.innerHTML += style;
-      } else {
-        this._styleElement.innerHTML = style;
-      }
-    }
-
-    return this._style;
   }
 
 }
@@ -726,5 +769,5 @@ Object.keys(_ShadowComponent).forEach(function (key) {
     }
   });
 });
-},{"./src/Component":"Simw","./src/ShadowComponent":"9Lec"}]},{},["Focm"], "Pandora")
+},{"./src/Component":"Simw","./src/ShadowComponent":"Lecv"}]},{},["Focm"], "Pandora")
 //# sourceMappingURL=pandora.js.map

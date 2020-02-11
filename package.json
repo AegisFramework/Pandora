@@ -1,6 +1,6 @@
 {
 	"name": "@aegis-framework/pandora",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "Aegis Framework Web Components Library",
 	"main": "./dist/pandora.min.js",
 	"module": "./dist/pandora.js",
