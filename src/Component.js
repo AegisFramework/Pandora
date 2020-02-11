@@ -351,14 +351,26 @@ export class Component extends HTMLElement {
 		// Call the render function asynchronously and set the HTML from it to the
 		// component.
 		return callAsync (render, this).then ((html) => {
-			this.innerHTML = html;
-
 			const slot = this.dom.querySelector ('slot');
+			const currentContent = this.innerHTML;
 
-			if (slot !== null && this.static._template !== null) {
-				return callAsync (this.render, this).then ((originalHtml) => {
-					slot.replaceWith (originalHtml);
-				});
+			if (typeof html === 'string') {
+				html = html.trim ();
+
+				if (html === '') {
+					return;
+				}
+			}
+
+			if (html === null || typeof html === 'undefined') {
+				return;
+			}
+
+			if (slot !== null) {
+				slot.replaceWith (html);
+			} else {
+				this.innerHTML = html;
+				this.innerHTML += currentContent;
 			}
 		});
 	}
