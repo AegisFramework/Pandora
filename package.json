@@ -30,14 +30,14 @@
 		"watch": "parcel watch ./index.js --global Pandora --out-file pandora.min.js --no-cache --public-url ."
 	},
 	"devDependencies": {
-		"@babel/core": "^7.5.5",
-		"@babel/plugin-proposal-class-properties": "^7.5.5",
-		"@babel/plugin-proposal-object-rest-spread": "^7.5.5",
-		"@babel/plugin-syntax-object-rest-spread": "^7.0.0",
-		"eslint": "^6.3.0",
+		"@babel/core": "^7.8.4",
+		"@babel/plugin-proposal-class-properties": "^7.8.3",
+		"@babel/plugin-proposal-object-rest-spread": "^7.8.3",
+		"@babel/plugin-syntax-object-rest-spread": "^7.8.3",
+		"eslint": "^6.8.0",
 		"jsdoc": "^3.6.3",
-		"jsdoc-to-markdown": "^5.0.1",
-		"parcel": "^1.12.3"
+		"jsdoc-to-markdown": "^5.0.3",
+		"parcel": "^1.12.4"
 	},
 	"files": [
 		"index.js",
