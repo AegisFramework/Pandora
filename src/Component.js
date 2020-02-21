@@ -84,6 +84,8 @@ export class Component extends HTMLElement {
 		this._style = {};
 
 		this._styleElement = null;
+
+		this._children = '';
 	}
 
 	/**
@@ -390,7 +392,6 @@ export class Component extends HTMLElement {
 		// component.
 		return callAsync (render, this).then ((html) => {
 			const slot = this.dom.querySelector ('slot');
-			const currentContent = this.innerHTML;
 
 			if (typeof html === 'string') {
 				html = html.trim ();
@@ -408,7 +409,9 @@ export class Component extends HTMLElement {
 				slot.replaceWith (html);
 			} else {
 				this.innerHTML = html;
-				this.innerHTML += currentContent;
+				if (this.children !== '') {
+					this.innerHTML += this._children;
+				}
 			}
 		});
 	}
@@ -442,6 +445,9 @@ export class Component extends HTMLElement {
 
 		// Start the Mount Cycle
 		return this.willMount ().then (() => {
+
+			this._children = this.innerHTML.trim ();
+
 			return this._render ().then (() => {
 				return this.didMount ().then (() => {
 

@@ -261,6 +261,7 @@ class Component extends HTMLElement {
     this._isReady = false;
     this._style = {};
     this._styleElement = null;
+    this._children = '';
   }
   /**
    * width - Determines the real (computed) width of the element
@@ -575,7 +576,6 @@ class Component extends HTMLElement {
 
     return (0, _Util.callAsync)(render, this).then(html => {
       const slot = this.dom.querySelector('slot');
-      const currentContent = this.innerHTML;
 
       if (typeof html === 'string') {
         html = html.trim();
@@ -593,7 +593,10 @@ class Component extends HTMLElement {
         slot.replaceWith(html);
       } else {
         this.innerHTML = html;
-        this.innerHTML += currentContent;
+
+        if (this.children !== '') {
+          this.innerHTML += this._children;
+        }
       }
     });
   }
@@ -624,6 +627,7 @@ class Component extends HTMLElement {
 
 
     return this.willMount().then(() => {
+      this._children = this.innerHTML.trim();
       return this._render().then(() => {
         return this.didMount().then(() => {
           this._isReady = true;
