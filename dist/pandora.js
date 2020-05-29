@@ -126,6 +126,12 @@ Object.defineProperty(exports, "__esModule", {
 exports.callAsync = callAsync;
 exports.deserializeCSS = deserializeCSS;
 
+/**
+ *
+ * @param {*} callable
+ * @param {*} context
+ * @param  {...any} args
+ */
 function callAsync(callable, context, ...args) {
   try {
     // Call the provided function using the context and arguments given
@@ -140,6 +146,13 @@ function callAsync(callable, context, ...args) {
     return Promise.reject(e);
   }
 }
+/**
+ *
+ * @param {*} object
+ * @param {*} encapsulation
+ * @param {*} level
+ */
+
 
 function deserializeCSS(object, encapsulation = '', level = 0) {
   const keys = Object.keys(object);
@@ -250,7 +263,8 @@ class Component extends HTMLElement {
   }
 
   constructor() {
-    super(); // State Object for the component
+    super();
+    this._children = this.innerHTML.trim(); // State Object for the component
 
     this._state = {}; // Props Object for the component
 
@@ -261,7 +275,6 @@ class Component extends HTMLElement {
     this._isReady = false;
     this._style = {};
     this._styleElement = null;
-    this._children = '';
   }
   /**
    * width - Determines the real (computed) width of the element
@@ -594,7 +607,7 @@ class Component extends HTMLElement {
       } else {
         this.innerHTML = html;
 
-        if (this.children !== '') {
+        if (this._children !== '' && html.indexOf(this._children) === -1) {
           this.innerHTML += this._children;
         }
       }
@@ -627,7 +640,6 @@ class Component extends HTMLElement {
 
 
     return this.willMount().then(() => {
-      this._children = this.innerHTML.trim();
       return this._render().then(() => {
         return this.didMount().then(() => {
           this._isReady = true;
@@ -701,6 +713,9 @@ var _Component = require("./Component");
 
 var _Util = require("./Util");
 
+/**
+ * @class ShadowComponent
+ */
 class ShadowComponent extends _Component.Component {
   constructor(...props) {
     super(...props);

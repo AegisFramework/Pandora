@@ -68,6 +68,7 @@ export class Component extends HTMLElement {
 
 	constructor () {
 		super ();
+		this._children = this.innerHTML.trim ();
 
 		// State Object for the component
 		this._state = {};
@@ -84,8 +85,6 @@ export class Component extends HTMLElement {
 		this._style = {};
 
 		this._styleElement = null;
-
-		this._children = '';
 	}
 
 	/**
@@ -409,7 +408,8 @@ export class Component extends HTMLElement {
 				slot.replaceWith (html);
 			} else {
 				this.innerHTML = html;
-				if (this.children !== '') {
+
+				if (this._children !== '' && html.indexOf(this._children) === -1) {
 					this.innerHTML += this._children;
 				}
 			}
@@ -445,8 +445,6 @@ export class Component extends HTMLElement {
 
 		// Start the Mount Cycle
 		return this.willMount ().then (() => {
-
-			this._children = this.innerHTML.trim ();
 
 			return this._render ().then (() => {
 				return this.didMount ().then (() => {

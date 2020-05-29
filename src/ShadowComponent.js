@@ -1,6 +1,9 @@
 import { Component } from './Component';
 import { callAsync } from './Util';
 
+/**
+ * @class ShadowComponent
+ */
 export class ShadowComponent extends Component {
 	constructor (...props) {
 		super (...props);

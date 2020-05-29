@@ -1,3 +1,9 @@
+/**
+ *
+ * @param {*} callable
+ * @param {*} context
+ * @param  {...any} args
+ */
 export function callAsync (callable, context, ...args) {
 	try {
 		// Call the provided function using the context and arguments given
@@ -14,6 +20,12 @@ export function callAsync (callable, context, ...args) {
 	}
 }
 
+/**
+ *
+ * @param {*} object
+ * @param {*} encapsulation
+ * @param {*} level
+ */
 export function deserializeCSS (object, encapsulation = '', level = 0, ) {
 	const keys = Object.keys (object);
 
