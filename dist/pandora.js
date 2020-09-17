@@ -727,7 +727,7 @@ class ShadowComponent extends _Component.Component {
   _createStyleElement() {
     if (!(this._styleElement instanceof HTMLStyleElement)) {
       this._styleElement = document.createElement('style');
-      this.dom.appendChild(this._styleElement);
+      this.dom.prepend(this._styleElement);
     }
   }
 
@@ -745,7 +745,9 @@ class ShadowComponent extends _Component.Component {
     return (0, _Util.callAsync)(render, this).then(html => {
       this._shadowDOM.innerHTML = '';
 
-      this._shadowDOM.appendChild(this._styleElement);
+      if (this._styleElement instanceof HTMLStyleElement) {
+        this._shadowDOM.appendChild(this._styleElement);
+      }
 
       this._shadowDOM.innerHTML += html;
     });
@@ -788,5 +790,17 @@ Object.keys(_ShadowComponent).forEach(function (key) {
     }
   });
 });
-},{"./src/Component":"Simw","./src/ShadowComponent":"Lecv"}]},{},["Focm"], "Pandora")
+
+var _Util = require("./src/Util");
+
+Object.keys(_Util).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _Util[key];
+    }
+  });
+});
+},{"./src/Component":"Simw","./src/ShadowComponent":"Lecv","./src/Util":"yzgE"}]},{},["Focm"], "Pandora")
 //# sourceMappingURL=pandora.js.map

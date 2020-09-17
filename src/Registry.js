@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { Component } from './Component';
 
 export class Registry {
@@ -10,7 +11,7 @@ export class Registry {
 
 			const components = this.components;
 			window.customElements.define (tag, new Proxy (Component, {
-				getPrototypeOf(target) {
+				getPrototypeOf (target) {
 					return Reflect.getPrototypeOf (target);
 				},
 				getOwnPropertyDescriptor (target, propertyKey) {

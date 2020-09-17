@@ -14,7 +14,7 @@ export class ShadowComponent extends Component {
 	_createStyleElement () {
 		if (!(this._styleElement instanceof HTMLStyleElement)) {
 			this._styleElement = document.createElement ('style');
-			this.dom.appendChild (this._styleElement);
+			this.dom.prepend (this._styleElement);
 		}
 	}
 
@@ -32,7 +32,9 @@ export class ShadowComponent extends Component {
 		// component.
 		return callAsync (render, this).then ((html) => {
 			this._shadowDOM.innerHTML = '';
-			this._shadowDOM.appendChild (this._styleElement);
+			if (this._styleElement instanceof HTMLStyleElement) {
+				this._shadowDOM.appendChild (this._styleElement);
+			}
 			this._shadowDOM.innerHTML += html;
 		});
 	}

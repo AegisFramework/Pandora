@@ -33,8 +33,8 @@ element.setStyle ({
 
 
 class CustomShadowElement extends Pandora.ShadowComponent {
-	constructor () {
-		super ();
+	constructor (...args) {
+		super (...args);
 		this.props = {
 			text: ''
 		};
