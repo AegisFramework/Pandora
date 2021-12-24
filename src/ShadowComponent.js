@@ -1,5 +1,5 @@
 import { Component } from './Component';
-import { callAsync } from './Util';
+import { callAsync, deserializeCSS } from './Util';
 
 /**
  * @class ShadowComponent
@@ -9,6 +9,27 @@ export class ShadowComponent extends Component {
 		super (...props);
 
 		this._shadowDOM = this.attachShadow ({ mode: 'open' });
+	}
+
+	setStyle (style, reset = false) {
+		this._createStyleElement ();
+
+		if (typeof style === 'object') {
+			if (reset === false) {
+				this._style = Object.assign ({}, this._style, style);
+			} else {
+				this._style = Object.assign ({}, style);
+			}
+			this._styleElement.innerHTML = deserializeCSS (this._style);
+		} else if (typeof style === 'string') {
+			if (reset === false) {
+				this._styleElement.innerHTML += style;
+			} else {
+				this._styleElement.innerHTML = style;
+			}
+		}
+
+		return this._style;
 	}
 
 	_createStyleElement () {

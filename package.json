@@ -1,9 +1,43 @@
 {
 	"name": "@aegis-framework/pandora",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Aegis Framework Web Components Library",
-	"main": "./dist/pandora.min.js",
+	"main": "./dist/pandora.node.js",
 	"module": "./dist/pandora.js",
+	"legacy": "./dist/pandora.min.js",
+	"targets": {
+		"module": {
+			"source": "index.js",
+			"engines": {
+				"browsers": "Chrome 80"
+			},
+			"outputFormat": "esmodule",
+			"isLibrary": true,
+			"optimize": true,
+			"includeNodeModules": true
+		},
+		"main": {
+			"source": "index.js",
+			"engines": {
+				"node": ">= 12"
+			},
+			"outputFormat": "commonjs",
+			"isLibrary": true,
+			"optimize": true,
+			"includeNodeModules": true
+		},
+		"legacy": {
+			"source": "browser.js",
+			"context": "browser",
+			"outputFormat": "global",
+			"engines": {
+				"browsers": "> 0.5%, last 2 versions, not dead"
+			},
+			"isLibrary": false,
+			"optimize": true,
+			"includeNodeModules": true
+		}
+	},
 	"repository": {
 		"type": "git",
 		"url": "https://gitlab.com/AegisFramework/Pandora.git"
@@ -26,26 +60,23 @@
 	"scripts": {
 		"eslint": "eslint index.js src",
 		"jsdoc": "jsdoc ./src -c ./.jsdoc.json && jsdoc2md -f ./src/* -c ./.jsdoc.json >> ./docs/README.md",
-		"build": "parcel build ./index.js --global Pandora --out-file pandora.js --no-minify --no-cache --public-url . && parcel build ./index.js --global Pandora --out-file pandora.min.js --no-cache --public-url .",
-		"watch": "parcel watch ./index.js --global Pandora --out-file pandora.min.js --no-cache --public-url ."
+		"build": "yarn build:main && yarn build:module && yarn build:legacy",
+		"build:main": "parcel build --target main --no-cache --public-url .",
+		"build:module": "parcel build --target module --no-cache --public-url .",
+		"build:legacy": "parcel build --target legacy --no-cache --public-url .",
+		"watch": "parcel watch --target legacy --no-cache --public-url ."
 	},
 	"devDependencies": {
-		"@babel/core": "^7.11.6",
-		"@babel/plugin-proposal-class-properties": "^7.10.4",
-		"@babel/plugin-proposal-object-rest-spread": "^7.11.0",
-		"@babel/plugin-syntax-object-rest-spread": "^7.8.3",
-		"babel-eslint": "^10.1.0",
-		"eslint": "^7.9.0",
-		"jsdoc": "^3.6.5",
-		"jsdoc-to-markdown": "^6.0.1",
-		"parcel": "^1.12.4"
+		"@babel/eslint-parser": "^7.16.5",
+		"eslint": "^8.5.0",
+		"jsdoc": "^3.6.7",
+		"jsdoc-to-markdown": "^7.1.0",
+		"parcel": "^2.0.1"
 	},
 	"files": [
 		"index.js",
 		"src/*",
 		"dist/*"
 	],
-	"browserslist": [
-		"> 5%"
-	]
+	"browserslist": "> 0.5%, last 2 versions, not dead"
 }

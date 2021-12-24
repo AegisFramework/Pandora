@@ -87,9 +87,8 @@
         "browser": true
     },
 	"parserOptions": {
-       "ecmaVersion": 8,
+       "ecmaVersion": "latest",
        "sourceType": "module"
 	},
-	"parser": "babel-eslint",
     "extends": "eslint:recommended"
 }

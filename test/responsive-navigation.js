@@ -605,3 +605,7 @@ class ResponsiveNavigation extends Pandora.ShadowComponent {
 		`;
 	}
 }
+
+ResponsiveNavigation.tag = 'responsive-navigation';
+
+window.customElements.define ('responsive-navigation', ResponsiveNavigation, { extends: 'nav' });

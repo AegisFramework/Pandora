@@ -33,7 +33,7 @@ export function deserializeCSS (object, encapsulation = '', level = 0, ) {
 
 	for (const key of keys) {
 		if (typeof object[key] === 'object') {
-			if (encapsulation) {
+			if (encapsulation && key.indexOf ('@') !== 0) {
 				if (key.indexOf ('&') === 0) {
 					css += `${key.replace(/&/g, encapsulation)} {\n`;
 				} else {

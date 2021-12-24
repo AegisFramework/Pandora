@@ -66,7 +66,6 @@ shadowElement.setStyle ({
 	}
 });
 
-window.customElements.define ('responsive-navigation', ResponsiveNavigation, { extends: 'nav' });
 
 const navigation = document.querySelector('responsive-navigation');
 
