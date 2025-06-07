@@ -574,7 +574,9 @@ class ResponsiveNavigation extends Pandora.ShadowComponent {
 	}
 
 	didMount () {
-		this.dom.querySelector('.menu-icon').onclick = () => {
+		console.log (this.shadowRoot);
+		console.log (this.shadowRoot.querySelector('.menu-icon'));
+		this.shadowRoot.querySelector('.menu-icon').onclick = () => {
 			this.setProps({
 				active: this.props.active !== 'true'
 			});
@@ -582,7 +584,16 @@ class ResponsiveNavigation extends Pandora.ShadowComponent {
 		return Promise.resolve ();
 	}
 
+  onPropsUpdate (property, oldValue, newValue, oldObject, newObject) {
+    console.log (property, oldValue, newValue, oldObject, newObject);
+    if (property === 'items') {
+      this.forceRender();
+    }
+    return Promise.resolve ();
+  }
+
 	render () {
+    console.log (this.props.items);
 		return `
 			${ this.props.logo || this.props.title ? `
 				<header>
@@ -608,4 +619,4 @@ class ResponsiveNavigation extends Pandora.ShadowComponent {
 
 ResponsiveNavigation.tag = 'responsive-navigation';
 
-window.customElements.define ('responsive-navigation', ResponsiveNavigation, { extends: 'nav' });
+window.customElements.define('responsive-navigation', ResponsiveNavigation);

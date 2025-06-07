@@ -98,3 +98,5 @@ navigation.setProps ({
 
 	]
 });
+
+console.log (navigation._isReady);
