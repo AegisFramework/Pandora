@@ -10,3 +10,10 @@ package-lock.json
 .parcel-cache
 dist
 docs
+.yarn/*
+!.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
