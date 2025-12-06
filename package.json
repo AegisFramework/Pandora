@@ -45,7 +45,8 @@
 		"build:types": "tsc --emitDeclarationOnly --declarationDir ./dist/types",
 		"check": "tsc --noEmit",
 		"lint": "eslint ./src/**/*.ts",
-		"clean": "rm -rf dist"
+		"clean": "rm -rf dist",
+    "test": "http-server -p 3000 -c-1"
 	},
 	"devDependencies": {
 		"@babel/eslint-parser": "^7.28.5",

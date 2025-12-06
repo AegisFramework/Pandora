@@ -6,56 +6,238 @@
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<style>
-			html {
-				width: 100%;
-				height: 100%;
+			:root {
+				--color-primary: #f75c5f;
+				--color-primary-hover: #c5494c;
+				--color-text: #424242;
+				--color-text-muted: #666;
+
+				--color-success: #4caf50;
+				--color-warning: #f9a825;
+
+        --border: rgba(66, 66, 66, 0.11);
 			}
 
-		    body {
-				width: 100%;
-				height: 100%;
-    		    text-align: center;
-    		    color: rgb(84, 84, 84);
-				font-family: -apple-system, BlinkMacSystemFont,
-					"Segoe UI", "Roboto", "Oxygen",
-					"Ubuntu", "Cantarell", "Open Sans", "Fira Sans",
-					"Droid Sans", "Helvetica Neue", sans-serif;
-				margin: 0;
-		    }
+			* {
+				box-sizing: border-box;
+			}
 
-			body > div {
-			   margin: 0 auto;
-			   top: 50%;
-			   left: 50%;
-			   -webkit-transform: translate(-50%, -50%);
-			   -moz-transform: translate(-50%, -50%);
-			   -o-transform: translate(-50%, -50%);
-			   -ms-transform: translate(-50%, -50%);
-			   position: absolute;
-			   max-height: 100%;
+			html, body {
+				width: 100%;
+				min-height: 100%;
+				margin: 0;
+				padding: 0;
+        background: #fff;
+			}
+
+			body {
+        font-family: sans-serif;
+				color: var(--color-text);
+				padding-top: 80px;
+			}
+
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 2rem;
 			}
 
 			h1 {
-				font-size: 4em;
-				font-weight: lighter;
+				font-size: 2.5rem;
+				font-weight: 700;
+				color: var(--color-primary);
+				margin-bottom: 0.5rem;
 			}
+
 
 			h2 {
-			    font-size: 2em;
-				font-weight: lighter;
+				font-size: 1.5rem;
+				font-weight: 600;
+				margin: 2rem 0 1rem;
+				padding-bottom: 0.5rem;
+				border-bottom: 1px solid var(--border);
 			}
 
-			simple-component p {
-				color: red;
+			.grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+				gap: 1.5rem;
+			}
+
+			.card {
+				border-radius: 4px;
+				padding: 1.5rem;
+				border: 1px solid rgba(66, 66, 66, 0.11);
+			}
+
+			.card h3 {
+				font-size: 1rem;
+				font-weight: 600;
+				margin: 0 0 1rem;
+				color: var(--color-primary);
+			}
+
+			.card p {
+				margin: 0.5rem 0;
+				font-size: 0.9rem;
+				color: var(--color-text-muted);
+			}
+
+			counter-component, click-counter, number-picker {
+				display: block;
+			}
+
+			.counter {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 1rem;
+			}
+
+			.counter button {
+				width: 40px;
+				height: 40px;
+				border-radius: 8px;
+				border: none;
+				background: var(--color-primary);
+				color: white;
+				font-size: 1.25rem;
+				cursor: pointer;
+				transition: background 0.2s;
+			}
+
+			.counter button:hover {
+				background: var(--color-primary-hover);
+			}
+
+			.counter .count {
+				font-size: 1.5rem;
+				font-weight: 600;
+				min-width: 3rem;
+				text-align: center;
+			}
+
+			.theme-button {
+				padding: 0.75rem 1.5rem;
+				border-radius: 8px;
+				border: none;
+				background: var(--color-primary);
+				color: white;
+				font-size: 0.9rem;
+				cursor: pointer;
+				transition: background 0.2s;
+			}
+
+			.theme-button:hover {
+				background: var(--color-primary-hover);
+			}
+
+			.once-button {
+				padding: 0.75rem 1.5rem;
+				border-radius: 8px;
+				border: 2px solid var(--color-primary);
+				background: transparent;
+				color: var(--color-primary);
+				font-size: 0.9rem;
+				cursor: pointer;
+				transition: all 0.2s;
+			}
+
+			.once-button:hover {
+				background: var(--color-primary);
+				color: white;
+			}
+
+			.attribute-watcher {
+				font-size: 0.9rem;
+			}
+
+			.attribute-watcher p {
+				margin: 0.25rem 0;
+			}
+
+			.query-demo h3 {
+				margin: 0 0 0.5rem;
+				font-size: 1rem;
+			}
+
+			.query-demo ul {
+				margin: 0;
+				padding-left: 1.5rem;
+			}
+
+			.lazy-loaded {
+				text-align: center;
+				padding: 1rem;
+			}
+
+			.lazy-loaded h4 {
+				margin: 0 0 0.5rem;
+				color: var(--color-success);
+			}
+
+			.evolve-content {
+				padding: 1rem;
+				border-radius: 8px;
+				text-align: center;
+				transition: all 0.3s;
+			}
+
+			.evolve-content.evolved {
+				background: var(--color-success);
+				color: white;
+			}
+
+			.dynamic-container {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 1rem;
+				margin-top: 1rem;
+			}
+
+			.dynamic-container counter-component {
+				flex: 1;
+				min-width: 150px;
+				padding: 1rem;
+				border-radius: 8px;
+			}
+
+			.button-group {
+				display: flex;
+				gap: 0.5rem;
+				margin-bottom: 1rem;
+			}
+
+			.button-group button {
+				padding: 0.5rem 1rem;
+				border-radius: 6px;
+				border: none;
+				background: var(--color-primary);
+				color: white;
+				cursor: pointer;
+				font-size: 0.85rem;
+			}
+
+			.button-group button:hover {
+				background: var(--color-primary-hover);
 			}
 
 			responsive-navigation {
-				box-shadow: 0 1.5px 4px rgba(0,0,0,.24),0 1.5px 6px rgba(0,0,0,.12);
-				top: 0;
+				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 				position: fixed;
+				top: 0;
+				z-index: 100;
+			}
+
+			custom-element h2 {
+				font-size: 1.25rem;
+				margin: 0;
+			}
+
+			custom-shadow-element {
+				display: block;
 			}
 		</style>
-
 	</head>
 
 	<body>
@@ -63,19 +245,107 @@
 			phone="top"
 			phablet="top"
 			tablet="top"
-			title="Responsive Navigation"
+			title="Pandora Test Suite"
 			fixed="true"
 		></responsive-navigation>
 
-		<h1>Pandora Test</h1>
-		<custom-element></custom-element>
-		<custom-element></custom-element>
-		<custom-element></custom-element>
-		<custom-element>TESTING</custom-element>
-		<custom-shadow-element></custom-shadow-element>
+		<div class="container">
+			<h2>Basic Components</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>Custom Element (with template)</h3>
+					<custom-element></custom-element>
+					<custom-element></custom-element>
+				</div>
+
+				<div class="card">
+					<h3>Shadow DOM Component</h3>
+					<custom-shadow-element></custom-shadow-element>
+				</div>
+			</div>
+
+			<h2>State & Events</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>Counter (State + Events)</h3>
+					<counter-component></counter-component>
+				</div>
+
+				<div class="card">
+					<h3>Once Event Demo</h3>
+					<once-demo></once-demo>
+				</div>
+
+				<div class="card">
+					<h3>Global State (Theme)</h3>
+					<theme-toggle></theme-toggle>
+				</div>
+			</div>
+
+			<h2>Registry Features</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>Component Aliases</h3>
+					<p>All three are the same component:</p>
+					<div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+						<div>
+							<small>&lt;counter-component&gt;</small>
+							<counter-component></counter-component>
+						</div>
+						<div>
+							<small>&lt;click-counter&gt; (alias)</small>
+							<click-counter></click-counter>
+						</div>
+						<div>
+							<small>&lt;number-picker&gt; (alias)</small>
+							<number-picker></number-picker>
+						</div>
+					</div>
+				</div>
+
+				<div class="card">
+					<h3>Observed Attributes</h3>
+					<attribute-watcher id="attr-demo" message="Hello!" status="active"></attribute-watcher>
+					<p>
+						<button onclick="document.getElementById('attr-demo').setAttribute('status', 'updated')">
+							Change Status
+						</button>
+					</p>
+				</div>
+
+				<div class="card">
+					<h3>Query Helpers</h3>
+					<query-demo></query-demo>
+				</div>
+			</div>
+
+			<h2>Advanced Features</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>Lazy Loading</h3>
+					<button onclick="this.parentElement.innerHTML += '<lazy-component></lazy-component>'">
+						Load Lazy Component
+					</button>
+				</div>
+
+				<div class="card">
+					<h3>Evolve (Hot Reload)</h3>
+					<evolvable-component></evolvable-component>
+				</div>
+
+				<div class="card">
+					<h3>Dynamic Instantiation</h3>
+					<div class="button-group">
+						<button onclick="addCounter()">Add Counter</button>
+						<button onclick="removeCounter()">Remove Counter</button>
+					</div>
+					<div class="dynamic-container"></div>
+				</div>
+			</div>
+		</div>
 
 		<template id="custom-element">
-			<h2>This is from a template!</h2>
+			<h2>From Template!</h2>
 		</template>
 
 		<script src="./../dist/pandora.browser.js"></script>

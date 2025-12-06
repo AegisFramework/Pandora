@@ -1,11 +1,14 @@
 import Component from './Component';
 import { callAsync, deserializeCSS } from './Util';
-import { Style } from './Types';
+import { Properties, Style } from './Types';
 
 /**
  * A component that uses Shadow DOM for encapsulation
+ *
+ * @template P - The type of the component's props (defaults to Properties)
+ * @template S - The type of the component's state (defaults to Properties)
  */
-class ShadowComponent extends Component {
+class ShadowComponent<P extends Properties = Properties, S extends Properties = Properties> extends Component<P, S> {
   protected _shadowDOM: ShadowRoot;
 
   constructor() {
@@ -50,23 +53,29 @@ class ShadowComponent extends Component {
     let render = this.render;
 
     // Check if a template has been set to this component, and if that's the
-		// case, use that instead of the render function to render the component's
-		// HTML code.
+    // case, use that instead of the render function to render the component's
+    // HTML code.
     if ((this.constructor as typeof Component)._template !== undefined) {
       render = this.template as () => string;
     }
 
     // Call the render function asynchronously and set the HTML from it to the
-		// component.
+    // component.
     const html = await callAsync(render, this);
 
-    this._shadowDOM.innerHTML = '';
-
-    if (this._styleElement instanceof HTMLStyleElement) {
-      this._shadowDOM.appendChild(this._styleElement);
+    // Remove all children except the style element
+    const children = Array.from(this._shadowDOM.childNodes);
+    for (const child of children) {
+      if (child !== this._styleElement) {
+        child.remove();
+      }
     }
 
-    this._shadowDOM.innerHTML += html;
+    // Create a template to parse the HTML and append the content
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    this._shadowDOM.appendChild(template.content);
 
     return html;
   }
@@ -85,6 +94,26 @@ class ShadowComponent extends Component {
 
   set shadowRoot(value: ShadowRoot) {
     throw new Error('ShadowComponent shadowRoot can not be overwritten.');
+  }
+
+  /**
+   * Queries for a single element within the shadow DOM.
+   *
+   * @param selector - CSS selector to query for
+   * @returns The first matching element or null
+   */
+  override query<E extends Element = Element>(selector: string): E | null {
+    return this._shadowDOM.querySelector<E>(selector);
+  }
+
+  /**
+   * Queries for all matching elements within the shadow DOM.
+   *
+   * @param selector - CSS selector to query for
+   * @returns A NodeList of all matching elements
+   */
+  override queryAll<E extends Element = Element>(selector: string): NodeListOf<E> {
+    return this._shadowDOM.querySelectorAll<E>(selector);
   }
 }
 

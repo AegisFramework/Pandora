@@ -1,15 +1,17 @@
 import { callAsync, deserializeCSS } from './Util';
-
 import { Properties, Style, ReadyCallback } from './Types';
 
 /**
  * A component represents a custom HTML element, and has all of its functionality
  * as well as its general structure and representation self contained on it.
+ *
+ * @template P - The type of the component's props (defaults to Properties)
+ * @template S - The type of the component's state (defaults to Properties)
  */
-class Component extends HTMLElement {
+class Component<P extends Properties = Properties, S extends Properties = Properties> extends HTMLElement {
   protected _children: string;
-  protected _state: Properties;
-  protected _props: Properties;
+  protected _state: S;
+  protected _props: P;
   protected _ready: ReadyCallback[];
   protected _connected: boolean;
   protected _isReady: boolean;
@@ -20,6 +22,36 @@ class Component extends HTMLElement {
   static _tag?: string;
 
   static _template?: string | ((context: any) => string);
+
+  // List of attributes to observe for changes
+  // https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements#responding_to_attribute_changes
+  static _observedAttributes: string[] = [];
+
+  // Registry integration hooks. These are set by the Registry.
+  static _onMount?: (component: Component, tag: string) => void;
+  static _onUnmount?: (component: Component, tag: string) => void;
+  static _onError?: (error: Error, component: Component, tag: string, lifecycle: string) => void;
+  static _applyMiddleware?: (type: string, component: Component, value: any) => any;
+  static _hasMiddleware?: (type: string) => boolean;
+
+  /**
+   * Returns the list of attributes to observe for changes.
+   * Override this in subclasses to specify which attributes should trigger attributeChangedCallback.
+   *
+   * @returns {string[]} - Array of attribute names to observe
+   */
+  static get observedAttributes(): string[] {
+    return this._observedAttributes;
+  }
+
+  /**
+   * Sets the list of attributes to observe for changes.
+   *
+   * @param value - The new list of attributes to observe
+   */
+  static set observedAttributes(value: string[]) {
+    this._observedAttributes = value;
+  }
 
   static get tag(): string {
     if (typeof this._tag === 'undefined') {
@@ -69,10 +101,10 @@ class Component extends HTMLElement {
     this._children = this.innerHTML.trim();
 
     // State Object for the component
-    this._state = {};
+    this._state = {} as S;
 
     // Props Object for the component
-    this._props = {};
+    this._props = {} as P;
 
     // List of callbacks to run once the component has been mounted successfully
     this._ready = [];
@@ -105,14 +137,14 @@ class Component extends HTMLElement {
   }
 
   get static(): typeof Component {
-    return new Proxy(this.constructor as typeof Component, {});
+    return this.constructor as typeof Component;
   }
 
   set static(value: typeof Component) {
     throw new Error('Component static properties cannot be reassigned.');
   }
 
-  get props(): Properties {
+  get props(): P {
     return new Proxy(this._props, {
       get: (target, key: string) => {
         if (this.hasAttribute(key)) {
@@ -129,8 +161,8 @@ class Component extends HTMLElement {
           }
 
           return value;
-        } else if (key in this._props) {
-          return this._props[key];
+        } else if (key in target) {
+          return target[key as keyof P];
         }
 
         return null;
@@ -138,10 +170,10 @@ class Component extends HTMLElement {
       set: () => {
         throw new Error('Component props should be set using the `setProps` function.');
       }
-    });
+    }) as P;
   }
 
-  set props(value: Properties) {
+  set props(value: P) {
     if (!this._connected) {
       this._props = { ...this._props, ...value };
     } else {
@@ -149,20 +181,21 @@ class Component extends HTMLElement {
     }
   }
 
-  get state(): Properties {
+  get state(): S {
     return new Proxy(this._state, {
-      get: (target, key: string) => target[key],
+      get: (target, key: string) => target[key as keyof S],
       set: (target, key: string, value) => {
         if (!this._connected) {
-          return (target[key] = value);
+          (target as any)[key] = value;
+          return true;
         } else {
           throw new Error('Component state should be set using the `setState` function instead.');
         }
       }
-    });
+    }) as S;
   }
 
-  set state(value: Properties) {
+  set state(value: S) {
     if (!this._connected) {
       this._state = { ...this._state, ...value };
     } else {
@@ -179,6 +212,20 @@ class Component extends HTMLElement {
   }
 
   /**
+   * Returns whether the component is currently connected to the DOM.
+   */
+  get isConnected(): boolean {
+    return this._connected;
+  }
+
+  /**
+   * Returns whether the component has completed its initial mount cycle.
+   */
+  get isReady(): boolean {
+    return this._isReady;
+  }
+
+  /**
 	 * register - Register the component as a custom HTML element
 	 * using the component's tag as the actual element tag.
 	 *
@@ -186,9 +233,7 @@ class Component extends HTMLElement {
 	 * the element can be changed.
 	 */
   static register(): void {
-    if (this._tag) {
-      window.customElements.define(this._tag, this);
-    }
+    window.customElements.define(this.tag, this);
   }
 
   /**
@@ -247,21 +292,35 @@ class Component extends HTMLElement {
     return this._style;
   }
 
-  setState(state: Properties): void {
-    const oldState = { ...this._state };
-    this._state = { ...this._state, ...state };
+  setState(state: Partial<S>): void {
+    // Apply middleware if available
+    let processedState = state;
 
-    for (const key of Object.keys (state)) {
-      this.updateCallback(key, oldState[key], this._state[key], 'state', oldState, this._state);
+    if (Component._hasMiddleware?.('state') && Component._applyMiddleware) {
+      processedState = Component._applyMiddleware('state', this, state);
+    }
+
+    const oldState = { ...this._state };
+    this._state = { ...this._state, ...processedState };
+
+    for (const key of Object.keys(processedState)) {
+      this.updateCallback(key, oldState[key as keyof S], this._state[key as keyof S], 'state', oldState, this._state);
     }
   }
 
-  setProps(props: Properties): void {
-    const oldProps = { ...this._props };
-    this._props = { ...this._props, ...props };
+  setProps(props: Partial<P>): void {
+    // Apply middleware if available
+    let processedProps = props;
 
-    for (const key of Object.keys (props)) {
-      this.updateCallback (key, oldProps[key], this._props[key], 'props', oldProps, this._props);
+    if (Component._hasMiddleware?.('props') && Component._applyMiddleware) {
+      processedProps = Component._applyMiddleware('props', this, props);
+    }
+
+    const oldProps = { ...this._props };
+    this._props = { ...this._props, ...processedProps };
+
+    for (const key of Object.keys(processedProps)) {
+      this.updateCallback(key, oldProps[key as keyof P], this._props[key as keyof P], 'props', oldProps, this._props);
     }
 
     this._setPropAttributes(true);
@@ -275,84 +334,289 @@ class Component extends HTMLElement {
         if (update) {
           this.setAttribute(key, String(value));
         } else {
-          this._props[key] = this.props[key];
-          this.setAttribute(key, String(this.props[key]));
+          (this._props as Record<string, unknown>)[key] = this.props[key as keyof P];
+          this.setAttribute(key, String(this.props[key as keyof P]));
         }
       }
     }
   }
 
   /*
-	 * =========================
-	 * Update Cycle
-	 * =========================
+   * =========================
+   * Event Helpers
+   * =========================
+   */
+
+  /**
+   * Adds an event listener to the component.
+   *
+   * @param event - The event type to listen for
+   * @param callback - The callback function to execute when the event occurs
+   * @param options - Optional event listener options
+   * @returns The component instance for chaining
+   */
+  on<K extends keyof HTMLElementEventMap>(
+    event: K,
+    callback: (this: this, ev: HTMLElementEventMap[K]) => any,
+    options?: boolean | AddEventListenerOptions
+  ): this;
+  on(event: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): this;
+  on(event: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): this {
+    this.addEventListener(event, callback, options);
+    return this;
+  }
+
+  /**
+   * Removes an event listener from the component.
+   *
+   * @param event - The event type to remove the listener for
+   * @param callback - The callback function to remove
+   * @param options - Optional event listener options
+   * @returns The component instance for chaining
+   */
+  off<K extends keyof HTMLElementEventMap>(
+    event: K,
+    callback: (this: this, ev: HTMLElementEventMap[K]) => any,
+    options?: boolean | EventListenerOptions
+  ): this;
+  off(event: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): this;
+  off(event: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): this {
+    this.removeEventListener(event, callback, options);
+    return this;
+  }
+
+  /**
+   * Adds a one-time event listener that removes itself after the first trigger.
+   *
+   * @param event - The event type to listen for
+   * @param callback - The callback function to execute when the event occurs
+   * @param options - Optional event listener options
+   * @returns The component instance for chaining
+   */
+  once<K extends keyof HTMLElementEventMap>(
+    event: K,
+    callback: (this: this, ev: HTMLElementEventMap[K]) => any,
+    options?: boolean | AddEventListenerOptions
+  ): this;
+  once(event: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): this;
+  once(event: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): this {
+    const opts = typeof options === 'boolean' ? { capture: options, once: true } : { ...options, once: true };
+    this.addEventListener(event, callback, opts);
+    return this;
+  }
+
+  /**
+   * Emits a custom event from the component.
+   *
+   * @param event - The event name to emit
+   * @param detail - Optional data to include with the event
+   * @param options - Optional CustomEvent init options (bubbles, cancelable, composed)
+   * @returns Whether the event was not cancelled
+   */
+  emit<T = unknown>(event: string, detail?: T, options?: Omit<CustomEventInit<T>, 'detail'>): boolean {
+    const customEvent = new CustomEvent(event, {
+      detail,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      ...options
+    });
+    return this.dispatchEvent(customEvent);
+  }
+
+  /*
+   * =========================
+   * Query Helpers
+   * =========================
+   */
+
+  /**
+   * Queries for a single element within the component's DOM.
+   *
+   * @param selector - CSS selector to query for
+   * @returns The first matching element or null
+   */
+  query<E extends Element = Element>(selector: string): E | null {
+    return this.dom.querySelector<E>(selector);
+  }
+
+  /**
+   * Queries for all matching elements within the component's DOM.
+   *
+   * @param selector - CSS selector to query for
+   * @returns A NodeList of all matching elements
+   */
+  queryAll<E extends Element = Element>(selector: string): NodeListOf<E> {
+    return this.dom.querySelectorAll<E>(selector);
+  }
+
+  /*
+   * =========================
+   * Update Cycle
+   * =========================
+   */
+
+  /**
+   * Called before the component updates due to state or props changes.
+   * Override this method to perform actions before an update occurs.
+   *
+   * @param origin - Whether the update was triggered by 'state' or 'props'
+   * @param property - The name of the property that changed
+   * @param oldValue - The previous value of the property
+   * @param newValue - The new value of the property
+   * @param oldObject - The previous state/props object
+   * @param newObject - The new state/props object
+   * @returns A promise that resolves when the pre-update logic completes
    */
   protected willUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called when the component updates due to state or props changes.
+   * Override this method to perform actions during an update.
+   *
+   * @param origin - Whether the update was triggered by 'state' or 'props'
+   * @param property - The name of the property that changed
+   * @param oldValue - The previous value of the property
+   * @param newValue - The new value of the property
+   * @param oldObject - The previous state/props object
+   * @param newObject - The new state/props object
+   * @returns A promise that resolves when the update logic completes
+   */
   protected update(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called after the component updates due to state or props changes.
+   * Override this method to perform actions after an update completes.
+   *
+   * @param origin - Whether the update was triggered by 'state' or 'props'
+   * @param property - The name of the property that changed
+   * @param oldValue - The previous value of the property
+   * @param newValue - The new value of the property
+   * @param oldObject - The previous state/props object
+   * @param newObject - The new state/props object
+   * @returns A promise that resolves when the post-update logic completes
+   */
   protected didUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called when the component's state updates.
+   * Override this method to react specifically to state changes.
+   *
+   * @param property - The name of the state property that changed
+   * @param oldValue - The previous value of the property
+   * @param newValue - The new value of the property
+   * @param oldObject - The previous state object
+   * @param newObject - The new state object
+   * @returns A promise that resolves when the state update logic completes
+   */
   protected onStateUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called when the component's props update.
+   * Override this method to react specifically to props changes.
+   *
+   * @param property - The name of the prop that changed
+   * @param oldValue - The previous value of the property
+   * @param newValue - The new value of the property
+   * @param oldObject - The previous props object
+   * @param newObject - The new props object
+   * @returns A promise that resolves when the props update logic completes
+   */
   protected onPropsUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
   /*
-	 * =========================
-	 * Mount Cycle
-	 * =========================
+   * =========================
+   * Mount Cycle
+   * =========================
    */
 
+  /**
+   * Called before the component is mounted to the DOM.
+   * Override this method to perform setup before rendering.
+   *
+   * @returns A promise that resolves when the pre-mount logic completes
+   */
   protected willMount(): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called after the component is mounted to the DOM.
+   * Override this method to perform actions after the component is rendered.
+   *
+   * @returns A promise that resolves when the post-mount logic completes
+   */
   protected didMount(): Promise<void> {
     return Promise.resolve();
   }
 
   /*
-	 * =========================
-	 * Unmount Cycle
-	 * =========================
+   * =========================
+   * Unmount Cycle
+   * =========================
+   */
+
+  /**
+   * Called before the component is removed from the DOM.
+   * Override this method to perform cleanup before unmounting.
+   *
+   * @returns A promise that resolves when the pre-unmount logic completes
    */
   protected willUnmount(): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called when the component is being removed from the DOM.
+   * Override this method to perform cleanup during unmounting.
+   *
+   * @returns A promise that resolves when the unmount logic completes
+   */
   protected unmount(): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   * Called after the component is removed from the DOM.
+   * Override this method to perform final cleanup after unmounting.
+   *
+   * @returns A promise that resolves when the post-unmount logic completes
+   */
   protected didUnmount(): Promise<void> {
     return Promise.resolve();
   }
 
-	/*
-	* =========================
-	* Render Cycle
-	* =========================
-	*/
+  /*
+   * =========================
+   * Render Cycle
+   * =========================
+   */
 
   /**
    * Forces the component to be rendered again.
    *
-   * @returns {string|Promise<string>} - The HTML to render on the component
+   * @returns A promise that resolves with the rendered HTML string
    */
   forceRender(): string | Promise<string> {
     return this._render();
   }
 
+  /**
+   * Returns the HTML content for the component.
+   * Override this method to define the component's template.
+   *
+   * @returns The HTML string to render
+   */
   render(): string {
     return '';
   }
@@ -366,16 +630,21 @@ class Component extends HTMLElement {
 
     let html = await callAsync<string>(render, this);
 
-    html = html.trim ();
+    html = html.trim();
+
+    // Apply render middleware if available
+    if (Component._hasMiddleware?.('render') && Component._applyMiddleware) {
+      html = Component._applyMiddleware('render', this, html);
+    }
 
     if (html === '') {
       return '';
     }
 
-    const slot = this.dom.querySelector ('slot');
+    const slot = this.dom.querySelector('slot');
 
     if (slot !== null) {
-      slot.replaceWith (html);
+      slot.replaceWith(html);
     } else {
       this.innerHTML = html;
 
@@ -388,42 +657,61 @@ class Component extends HTMLElement {
   }
 
   async connectedCallback(): Promise<void> {
-    // Set the state as connected
-    this._connected = true;
+    const tag = this.static.tag;
 
-    // Add a data property with the tag of the component
-    this.dataset.component = this.static.tag;
+    try {
+      // Set the state as connected
+      this._connected = true;
 
-    // Check if a template for this component was set. The contents on this
-		// if block will only be run once.
-    if (typeof this.static._template === 'undefined') {
+      // Add a data property with the tag of the component
+      this.dataset.component = tag;
 
-      // Check if there is an HTML template for this component
-      const template = document.querySelector (`template#${this.static.tag}`);
+      // Check if a template for this component was set. The contents on this
+      // if block will only be run once.
+      if (typeof this.static._template === 'undefined') {
 
-      if (template !== null) {
-        // If there is, set is as the template for the component
-        this.template (template.innerHTML);
-      } else {
-        // If not, set is as null
-        this.static._template = undefined;
+        // Check if there is an HTML template for this component
+        const template = document.querySelector(`template#${tag}`);
+
+        if (template !== null) {
+          // If there is, set is as the template for the component
+          this.template(template.innerHTML);
+        } else {
+          // If not, set is as null
+          this.static._template = undefined;
+        }
       }
-    }
 
-    // Set the initial prop attributes for the component using the given
-		// props
-    this._setPropAttributes(false);
+      // Set the initial prop attributes for the component using the given props
+      this._setPropAttributes(false);
 
-    // Run the Mount Cycle
-	  await this.willMount();
-    await this._render();
-    await this.didMount();
+      // Run the Mount Cycle
+      await this.willMount();
+      await this._render();
+      await this.didMount();
 
-    // Set the component as ready
-    this._isReady = true;
+      // Set the component as ready
+      this._isReady = true;
 
-    for (const callback of this._ready) {
-      callback.call(this);
+      // Execute and clear ready callbacks
+      const callbacks = [...this._ready];
+      this._ready = [];
+
+      for (const callback of callbacks) {
+        callback.call(this);
+      }
+
+      // Notify Registry of mount
+      if (Component._onMount) {
+        Component._onMount(this, tag);
+      }
+
+    } catch (error) {
+      if (Component._onError) {
+        Component._onError(error as Error, this, tag, 'connectedCallback');
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -436,38 +724,62 @@ class Component extends HTMLElement {
   }
 
   async disconnectedCallback(): Promise<void> {
-    // Run the Unmount Cycle
-    await this.willUnmount();
-    await this.unmount();
-    await this.didUnmount();
+    const tag = this.static.tag;
 
-    // Set the state as disconnected
-    this._connected = false;
+    try {
+      // Run the Unmount Cycle
+      await this.willUnmount();
+      await this.unmount();
+      await this.didUnmount();
+
+      // Set the state as disconnected
+      this._connected = false;
+
+      // Notify Registry of unmount
+      if (Component._onUnmount) {
+        Component._onUnmount(this, tag);
+      }
+
+    } catch (error) {
+      if (Component._onError) {
+        Component._onError(error as Error, this, tag, 'disconnectedCallback');
+      } else {
+        throw error;
+      }
+    }
   }
 
   protected async updateCallback(
     property: string,
     oldValue: unknown,
     newValue: unknown,
-    origin: 'props' | 'state' = 'props',
-    oldObject: Properties = {},
-    newObject: Properties = {}
+    origin: 'props' | 'state' | 'attribute' = 'props',
+    oldObject: P | S = {} as P | S,
+    newObject: P | S = {} as P | S
   ): Promise<void> {
     await this.willUpdate(origin, property, oldValue, newValue, oldObject, newObject);
     await this.update(origin, property, oldValue, newValue, oldObject, newObject);
 
     if (origin === 'state') {
       await this.onStateUpdate(property, oldValue, newValue, oldObject, newObject);
-    } else {
+    } else if (origin === 'props' || origin === 'attribute') {
       await this.onPropsUpdate(property, oldValue, newValue, oldObject, newObject);
     }
 
     await this.didUpdate(origin, property, oldValue, newValue, oldObject, newObject);
   }
 
+  /**
+   * Called when an observed attribute changes.
+   * This is a Web Components lifecycle callback.
+   *
+   * @param property - The name of the attribute that changed
+   * @param oldValue - The previous value of the attribute
+   * @param newValue - The new value of the attribute
+   */
   attributeChangedCallback(property: string, oldValue: string | null, newValue: string | null): void {
     if (oldValue !== newValue) {
-      this.updateCallback(property, oldValue, newValue);
+      this.updateCallback(property, oldValue, newValue, 'attribute');
     }
   }
 }
