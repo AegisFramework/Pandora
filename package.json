@@ -1,11 +1,24 @@
 {
 	"name": "@aegis-framework/pandora",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Aegis Framework Web Components Library",
+	"type": "module",
 	"main": "./dist/pandora.js",
 	"module": "./dist/pandora.js",
-	"legacy": "./dist/pandora.browser.js",
 	"types": "./dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/pandora.js",
+			"default": "./dist/pandora.js"
+		},
+		"./browser": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/pandora.browser.js",
+			"default": "./dist/pandora.browser.js"
+		}
+	},
+	"sideEffects": false,
 	"repository": {
 		"type": "git",
 		"url": "https://gitlab.com/AegisFramework/Pandora.git"
@@ -27,22 +40,23 @@
 	],
 	"scripts": {
 		"build": "yarn clean && yarn lint && yarn check && yarn build:module && yarn build:legacy && yarn build:types",
-		"build:module": "bun build --entrypoints ./src/index.ts --target browser --format esm --outfile ./dist/pandora.js --minify",
-		"build:legacy": "bun build --entrypoints ./src/browser.ts --target browser --format esm --outfile ./dist/pandora.browser.js --minify",
+		"build:module": "bun build ./src/index.ts --target browser --format esm --outdir ./dist --sourcemap=linked --minify && mv ./dist/index.js ./dist/pandora.js && mv ./dist/index.js.map ./dist/pandora.js.map && sed -i 's/index.js.map/pandora.js.map/' ./dist/pandora.js",
+		"build:legacy": "bun build ./src/browser.ts --target browser --format esm --outdir ./dist --sourcemap=linked --minify && mv ./dist/browser.js ./dist/pandora.browser.js && mv ./dist/browser.js.map ./dist/pandora.browser.js.map && sed -i 's/browser.js.map/pandora.browser.js.map/' ./dist/pandora.browser.js",
 		"build:types": "tsc --emitDeclarationOnly --declarationDir ./dist/types",
 		"check": "tsc --noEmit",
 		"lint": "eslint ./src/**/*.ts",
 		"clean": "rm -rf dist"
 	},
 	"devDependencies": {
-		"@babel/eslint-parser": "^7.25.9",
-		"@eslint/js": "^9.28.0",
-		"@typescript-eslint/eslint-plugin": "^8.33.1",
-		"@typescript-eslint/parser": "^8.33.1",
-		"bun": "^1.2.15",
-		"eslint": "^9.17.0",
-		"typescript": "^5.8.3",
-		"typescript-eslint": "^8.33.1"
+		"@babel/eslint-parser": "^7.28.5",
+		"@eslint/js": "^9.39.1",
+		"@typescript-eslint/eslint-plugin": "^8.48.1",
+		"@typescript-eslint/parser": "^8.48.1",
+		"bun": "^1.3.3",
+		"eslint": "^9.39.1",
+		"http-server": "^14.1.1",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.48.1"
 	},
 	"files": [
 		"dist/",

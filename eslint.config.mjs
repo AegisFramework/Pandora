@@ -1,9 +1,7 @@
-
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
-
-export default tseslint.config(
+export default [
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -20,7 +18,6 @@ export default tseslint.config(
       '@typescript-eslint/no-inferrable-types': 'off',
       'no-useless-escape': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-unused-vars': 'off',
     },
   },
@@ -34,4 +31,4 @@ export default tseslint.config(
       '.pnp.cjs',
     ],
   }
-);
+];

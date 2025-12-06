@@ -1,10 +1,10 @@
 const style = (props) => `
-	* ==============================
-	* Responsive Navigation
-	*
-	* From: https://gitlab.com/AegisFramework/Kayros
-	* ==============================
-	*/
+	/* ==============================
+	 * Responsive Navigation
+	 *
+	 * From: https://gitlab.com/AegisFramework/Kayros
+	 * ==============================
+	 */
 
 	:host([fixed]) {
 		position: fixed;
@@ -24,7 +24,7 @@ const style = (props) => `
 		overflow: visible;
 		background: inherit;
 		width: 100%;
-		height: auo;
+		height: auto;
 	}
 
 	li > * {
