@@ -9,7 +9,7 @@ import { Properties, Style } from './Types';
  * @template S - The type of the component's state (defaults to Properties)
  */
 class ShadowComponent<P extends Properties = Properties, S extends Properties = Properties> extends Component<P, S> {
-  protected _shadowDOM: ShadowRoot;
+  public _shadowDOM: ShadowRoot;
 
   constructor() {
     super();
@@ -40,7 +40,7 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
     return this._style;
   }
 
-  protected _createStyleElement(): void {
+  public override _createStyleElement(): void {
     if (this._styleElement instanceof HTMLStyleElement) {
       return;
     }
@@ -49,7 +49,7 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
     this._shadowDOM.prepend(this._styleElement);
   }
 
-  protected async _render(): Promise<string> {
+  public override async _render(): Promise<string> {
     let render = this.render;
 
     // Check if a template has been set to this component, and if that's the

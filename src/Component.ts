@@ -9,14 +9,14 @@ import { Properties, Style, ReadyCallback } from './Types';
  * @template S - The type of the component's state (defaults to Properties)
  */
 class Component<P extends Properties = Properties, S extends Properties = Properties> extends HTMLElement {
-  protected _children: string;
-  protected _state: S;
-  protected _props: P;
-  protected _ready: ReadyCallback[];
-  protected _connected: boolean;
-  protected _isReady: boolean;
-  protected _style: Style;
-  protected _styleElement: HTMLStyleElement | null;
+  public _children: string;
+  public _state: S;
+  public _props: P;
+  public _ready: ReadyCallback[];
+  public _connected: boolean;
+  public _isReady: boolean;
+  public _style: Style;
+  public _styleElement: HTMLStyleElement | null;
 
   // This is the tag name for the component
   static _tag?: string;
@@ -249,7 +249,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     return (this.constructor as typeof Component).template(html, this);
   }
 
-  protected _createStyleElement(): void {
+  public _createStyleElement(): void {
     // Check if there is a shared style element for the component
     const sharedStyle = document.body.querySelector(`style#${(this.constructor as typeof Component).tag}`);
 
@@ -326,7 +326,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     this._setPropAttributes(true);
   }
 
-  protected _setPropAttributes(update: boolean = false): void {
+  public _setPropAttributes(update: boolean = false): void {
     for (const [key, value] of Object.entries(this._props)) {
       const valueType = typeof value;
 
@@ -468,7 +468,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state/props object
    * @returns A promise that resolves when the pre-update logic completes
    */
-  protected willUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
+  public willUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
@@ -484,7 +484,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state/props object
    * @returns A promise that resolves when the update logic completes
    */
-  protected update(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
+  public update(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
@@ -500,7 +500,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state/props object
    * @returns A promise that resolves when the post-update logic completes
    */
-  protected didUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
+  public didUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
@@ -515,7 +515,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state object
    * @returns A promise that resolves when the state update logic completes
    */
-  protected onStateUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
+  public onStateUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
@@ -530,7 +530,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new props object
    * @returns A promise that resolves when the props update logic completes
    */
-  protected onPropsUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
+  public onPropsUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
     return Promise.resolve();
   }
 
@@ -546,7 +546,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the pre-mount logic completes
    */
-  protected willMount(): Promise<void> {
+  public willMount(): Promise<void> {
     return Promise.resolve();
   }
 
@@ -556,7 +556,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the post-mount logic completes
    */
-  protected didMount(): Promise<void> {
+  public didMount(): Promise<void> {
     return Promise.resolve();
   }
 
@@ -572,7 +572,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the pre-unmount logic completes
    */
-  protected willUnmount(): Promise<void> {
+  public willUnmount(): Promise<void> {
     return Promise.resolve();
   }
 
@@ -582,7 +582,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the unmount logic completes
    */
-  protected unmount(): Promise<void> {
+  public unmount(): Promise<void> {
     return Promise.resolve();
   }
 
@@ -592,7 +592,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the post-unmount logic completes
    */
-  protected didUnmount(): Promise<void> {
+  public didUnmount(): Promise<void> {
     return Promise.resolve();
   }
 
@@ -621,7 +621,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     return '';
   }
 
-  protected async _render(): Promise<string> {
+  public async _render(): Promise<string> {
     let render = this.render;
 
     if ((this.constructor as typeof Component)._template !== undefined) {
@@ -749,7 +749,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     }
   }
 
-  protected async updateCallback(
+  public async updateCallback(
     property: string,
     oldValue: unknown,
     newValue: unknown,
