@@ -39,7 +39,7 @@
 		"library"
 	],
 	"scripts": {
-		"build": "yarn clean && yarn lint && yarn check && yarn build:module && yarn build:legacy && yarn build:types",
+		"build": "bun clean && bun lint && bun check && bun build:module && bun build:legacy && bun build:types",
 		"build:module": "bun build ./src/index.ts --target browser --format esm --outdir ./dist --sourcemap=linked --minify && mv ./dist/index.js ./dist/pandora.js && mv ./dist/index.js.map ./dist/pandora.js.map && sed -i 's/index.js.map/pandora.js.map/' ./dist/pandora.js",
 		"build:legacy": "bun build ./src/browser.ts --target browser --format esm --outdir ./dist --sourcemap=linked --minify && mv ./dist/browser.js ./dist/pandora.browser.js && mv ./dist/browser.js.map ./dist/pandora.browser.js.map && sed -i 's/browser.js.map/pandora.browser.js.map/' ./dist/pandora.browser.js",
 		"build:types": "tsc --emitDeclarationOnly --declarationDir ./dist/types",
@@ -66,5 +66,5 @@
 		"package.json"
 	],
 	"browserslist": "> 0.5%, last 2 versions, not dead",
-	"packageManager": "yarn@4.12.0"
+	"packageManager": "bun@4.12.0"
 }
