@@ -1,6 +1,6 @@
 # Pandora
 
-Pandora is a lightweight Web Components library that allows you to create simple and reusable custom HTML elements with reactive state management, lifecycle hooks, and Shadow DOM support.
+Pandora is a lightweight Web Components library that allows you to create simple and reusable custom HTML elements with reactive state management, lifecycle hooks, and Shadow DOM support. It includes built-in [lit-html](https://lit.dev/docs/libraries/standalone-templates/) integration for efficient DOM updates.
 
 ## Installation
 
@@ -10,11 +10,14 @@ npm install @aegis-framework/pandora
 
 # Using yarn
 yarn add @aegis-framework/pandora
+
+# Using bun
+bun add @aegis-framework/pandora
 ```
 
 ## Quick Start
 
-### Basic Component
+### Basic Component (String Templates)
 
 ```javascript
 import { Component } from '@aegis-framework/pandora';
@@ -38,6 +41,25 @@ console.log(CustomElement.tag); // 'custom-element'
 window.customElements.define(CustomElement.tag, CustomElement);
 ```
 
+### Basic Component (lit-html Templates)
+
+For better performance with frequent updates, use lit-html's tagged templates:
+
+```javascript
+import { Component, html } from '@aegis-framework/pandora';
+
+class CustomElement extends Component {
+  constructor() {
+    super();
+    this.props = { text: '' };
+  }
+
+  render() {
+    return html`<h2>${this.props.text}</h2>`;
+  }
+}
+```
+
 Using it in the HTML:
 
 ```html
@@ -49,7 +71,7 @@ Using it in the HTML:
 Pandora supports generic types for props and state:
 
 ```typescript
-import { Component } from '@aegis-framework/pandora';
+import { Component, html } from '@aegis-framework/pandora';
 
 interface MyProps {
   name: string;
@@ -73,10 +95,37 @@ class TypedComponent extends Component<MyProps, MyState> {
   }
 
   render() {
-    return `
+    return html`
       <div class="${this.state.active ? 'active' : ''}">
         <h2>${this.props.name}</h2>
         <span>Count: ${this.props.count}</span>
+      </div>
+    `;
+  }
+}
+```
+
+### Using Decorators
+
+Pandora provides decorators for cleaner component registration and state binding:
+
+```typescript
+import { Component, Register, Consumer, Prop, html } from '@aegis-framework/pandora';
+
+@Register('my-counter')
+class MyCounter extends Component {
+  @Prop()
+  initialCount: number = 0;
+
+  @Consumer('app.theme')
+  theme!: string;
+
+  state = { count: 0 };
+
+  render() {
+    return html`
+      <div class="theme-${this.theme}">
+        Count: ${this.state.count}
       </div>
     `;
   }
@@ -114,10 +163,10 @@ class MyComponent extends Component {
 
 ### ShadowComponent
 
-A component that uses Shadow DOM for style encapsulation.
+A component that uses Shadow DOM for style encapsulation. ShadowComponent uses [Constructable Stylesheets](https://web.dev/constructable-stylesheets/) for high-performance styling - styles are shared across all instances of the same component class and updates use `replaceSync()` for fast synchronous changes.
 
 ```javascript
-import { ShadowComponent } from '@aegis-framework/pandora';
+import { ShadowComponent, html } from '@aegis-framework/pandora';
 
 class MyShadowComponent extends ShadowComponent {
   constructor() {
@@ -128,6 +177,7 @@ class MyShadowComponent extends ShadowComponent {
   willMount() {
     // Set scoped styles
     this.setStyle({
+      ':host': { display: 'block' },
       h2: { color: 'blue' }
     });
 
@@ -135,7 +185,8 @@ class MyShadowComponent extends ShadowComponent {
   }
 
   render() {
-    return `<h2>${this.props.text}</h2>`;
+    // Can use string templates or lit-html
+    return html`<h2>${this.props.text}</h2>`;
   }
 }
 ```
@@ -156,6 +207,7 @@ class MyShadowComponent extends ShadowComponent {
 | `props` | `object` | Component properties (read via proxy) |
 | `state` | `object` | Internal component state |
 | `dom` | `HTMLElement` | Reference to the component's DOM |
+| `slotContent` | `string` | Original innerHTML content before rendering (for content projection) |
 | `width` | `number` | Computed width in pixels |
 | `height` | `number` | Computed height in pixels |
 | `isConnected` | `boolean` | Whether the component is connected to the DOM |
@@ -282,7 +334,8 @@ You can use HTML templates instead of the render method:
 ```html
 <template id="my-component">
   <div class="wrapper">
-    <slot></slot>
+    <!-- For light DOM components, use slotContent in render() instead -->
+    <!-- For ShadowComponent, use native <slot> -->
   </div>
 </template>
 ```
@@ -290,18 +343,240 @@ You can use HTML templates instead of the render method:
 Or set templates programmatically:
 
 ```javascript
+// String template
 MyComponent.template(`
   <div class="wrapper">
     <h2>{{title}}</h2>
   </div>
 `);
 
-// Or with a function for dynamic templates
+// Function returning string
 MyComponent.template((context) => `
   <div class="wrapper">
     <h2>${context.props.title}</h2>
   </div>
 `);
+
+// Function returning lit-html (recommended for dynamic content)
+import { html } from '@aegis-framework/pandora';
+
+MyComponent.template((context) => html`
+  <div class="wrapper">
+    <h2>${context.props.title}</h2>
+    <button @click=${() => context.handleClick()}>Click me</button>
+  </div>
+`);
+```
+
+## lit-html Integration
+
+Pandora includes [lit-html](https://lit.dev/docs/libraries/standalone-templates/) and re-exports its utilities for convenience. You don't need to install lit-html separately.
+
+### Exports
+
+```javascript
+import {
+  // Tagged template functions
+  html,      // For HTML templates
+  svg,       // For SVG templates
+
+  // Special values
+  nothing,   // Render nothing
+  noChange,  // Skip updating a value
+
+  // Manual rendering (rarely needed)
+  render,
+
+  // Types (TypeScript)
+  TemplateResult,
+  SVGTemplateResult,
+  RenderOptions
+} from '@aegis-framework/pandora';
+```
+
+### String vs lit-html Templates
+
+Both rendering modes work seamlessly. Use strings for simple components, lit-html for complex UIs:
+
+```javascript
+// String template (simple, familiar)
+render() {
+  return `<div>${this.props.name}</div>`;
+}
+
+// lit-html template (efficient updates, event binding)
+render() {
+  return html`
+    <div>
+      ${this.props.name}
+      <button @click=${() => this.handleClick()}>Click</button>
+    </div>
+  `;
+}
+```
+
+### lit-html Features
+
+When using `html` templates, you get access to lit-html features:
+
+```javascript
+import { html, nothing } from '@aegis-framework/pandora';
+
+class MyComponent extends Component {
+  render() {
+    return html`
+      <!-- Conditional rendering -->
+      ${this.state.show ? html`<div>Visible</div>` : nothing}
+
+      <!-- List rendering -->
+      <ul>
+        ${this.state.items.map(item => html`<li>${item}</li>`)}
+      </ul>
+
+      <!-- Event binding -->
+      <button @click=${(e) => this.handleClick(e)}>Click</button>
+
+      <!-- Property binding -->
+      <input .value=${this.state.name}>
+
+      <!-- Boolean attributes -->
+      <button ?disabled=${this.state.loading}>Submit</button>
+    `;
+  }
+}
+```
+
+### Content Projection with slotContent
+
+Use the `slotContent` property to include the original innerHTML in your templates:
+
+```html
+<!-- Usage -->
+<my-card>
+  <h3>Card Title</h3>
+  <p>Card content goes here.</p>
+</my-card>
+```
+
+```javascript
+class MyCard extends Component {
+  render() {
+    // String template
+    return `
+      <div class="card">
+        <div class="card-body">
+          ${this.slotContent}
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Or with lit-html
+class MyCard extends Component {
+  render() {
+    return html`
+      <div class="card">
+        <div class="card-body">
+          ${this.slotContent}
+        </div>
+      </div>
+    `;
+  }
+}
+```
+
+> **Note:** For ShadowComponent, use the native `<slot>` element instead of `slotContent` for proper Shadow DOM content projection.
+
+## Decorators
+
+Pandora provides TypeScript/JavaScript decorators for cleaner component definitions.
+
+> **Note:** Decorators require TypeScript or a build tool (Babel, esbuild, etc.) that supports the decorator syntax. For plain browser JavaScript, use the functional form: `Register('my-tag')(MyClass)` instead of `@Register('my-tag')`.
+
+### @Register(tagName)
+
+Automatically registers the component with the CustomElementsRegistry:
+
+```typescript
+import { Component, Register } from '@aegis-framework/pandora';
+
+@Register('my-button')
+class MyButton extends Component {
+  render() {
+    return `<button>${this.slotContent}</button>`;
+  }
+}
+
+// No need for: Registry.register('my-button', MyButton);
+```
+
+### @Consumer(stateKey)
+
+Binds a class property to global Registry state. Automatically subscribes on connect and unsubscribes on disconnect:
+
+```typescript
+import { Component, Register, Consumer, html } from '@aegis-framework/pandora';
+import { Registry } from '@aegis-framework/pandora';
+
+// Set initial state
+Registry.setState('user.theme', 'light');
+Registry.setState('user.name', 'Guest');
+
+@Register('user-greeting')
+class UserGreeting extends Component {
+  @Consumer('user.theme')
+  theme!: string;
+
+  @Consumer('user.name')
+  name!: string;
+
+  render() {
+    return html`
+      <div class="theme-${this.theme}">
+        Hello, ${this.name}!
+      </div>
+    `;
+  }
+}
+
+// Later, updating state automatically updates all @Consumer properties
+Registry.setState('user.name', 'Alice'); // All UserGreeting instances re-render
+```
+
+### @Prop(attributeName?)
+
+Declares a property that syncs with a DOM attribute:
+
+```typescript
+import { Component, Register, Prop, html } from '@aegis-framework/pandora';
+
+@Register('my-input')
+class MyInput extends Component {
+  @Prop()
+  placeholder: string = '';
+
+  @Prop('max-length')  // Custom attribute name
+  maxLength: number = 100;
+
+  @Prop()
+  disabled: boolean = false;
+
+  render() {
+    return html`
+      <input
+        placeholder=${this.placeholder}
+        maxlength=${this.maxLength}
+        ?disabled=${this.disabled}
+      >
+    `;
+  }
+}
+```
+
+```html
+<!-- Attributes sync with properties -->
+<my-input placeholder="Enter text" max-length="50" disabled></my-input>
 ```
 
 ## Registry
@@ -598,10 +873,15 @@ const unsubscribeState = Registry.use('state', (component, state) => {
   return state;
 });
 
-// Render middleware - can modify rendered HTML
-const unsubscribeRender = Registry.use('render', (component, html) => {
-  // Add wrapper or modify output
-  return html;
+// Render middleware - can modify rendered output
+// The third parameter `renderType` indicates if the template is 'string' or 'lit'
+const unsubscribeRender = Registry.use('render', (component, value, renderType) => {
+  if (renderType === 'string') {
+    // String templates can be modified directly
+    return value.replace('{{timestamp}}', Date.now());
+  }
+  // lit-html TemplateResults should be returned as-is or wrapped
+  return value;
 });
 
 // Clean up middleware
@@ -620,10 +900,14 @@ if (process.env.NODE_ENV === 'development') {
     return state;
   });
 
-  // Track render performance
-  Registry.use('render', (component, html) => {
-    console.log(`[${component.static.tag}] rendered ${html.length} chars`);
-    return html;
+  // Track render performance (type-aware)
+  Registry.use('render', (component, value, renderType) => {
+    if (renderType === 'string') {
+      console.log(`[${component.static.tag}] rendered ${value.length} chars (string)`);
+    } else {
+      console.log(`[${component.static.tag}] rendered (lit-html)`);
+    }
+    return value;
   });
 }
 ```
@@ -673,9 +957,15 @@ class ThemeToggle extends Component {
 
 ## Styling
 
+Both `Component` and `ShadowComponent` use [Constructable Stylesheets](https://web.dev/constructable-stylesheets/) for optimal performance:
+
+- **Shared across instances** - One stylesheet per component class, not per instance
+- **Fast updates** - Uses `replaceSync()` for synchronous style changes
+- **No DOM overhead** - No `<style>` element parsing
+
 ### Regular Components
 
-Styles are added to a shared `<style>` element in the document:
+Styles are adopted into `document.adoptedStyleSheets` and automatically scoped using the component's tag name as a selector prefix:
 
 ```javascript
 element.setStyle({
@@ -687,11 +977,12 @@ element.setStyle({
     color: 'red'
   }
 });
+// Generates: my-element h2 { color: blue; ... }
 ```
 
 ### Shadow Components
 
-Styles are scoped to the Shadow DOM:
+Styles are adopted into the shadow root's `adoptedStyleSheets` and naturally scoped by Shadow DOM encapsulation:
 
 ```javascript
 shadowElement.setStyle({
@@ -729,23 +1020,7 @@ For direct browser usage without a bundler:
 ```html
 <script src="path/to/pandora.browser.js"></script>
 <script>
-  class MyElement extends Pandora.Component {
-    render() {
-      return '<h2>Hello World!</h2>';
-    }
-  }
-
-  // Register using the Registry
-  Pandora.Registry.register('my-element', MyElement);
-</script>
-```
-
-Or use the Registry for component management:
-
-```html
-<script src="path/to/pandora.browser.js"></script>
-<script>
-  const { Component, Registry } = Pandora;
+  const { Component, ShadowComponent, Registry, html } = Pandora;
 
   class CounterElement extends Component {
     constructor() {
@@ -753,13 +1028,22 @@ Or use the Registry for component management:
       this.state = { count: 0 };
     }
 
+    didMount() {
+      this.on('click', () => {
+        this.setState({ count: this.state.count + 1 });
+      });
+      return Promise.resolve();
+    }
+
     render() {
-      return `<button>Count: ${this.state.count}</button>`;
+      return html`<button>Count: ${this.state.count}</button>`;
     }
   }
 
   Registry.register('counter-element', CounterElement);
 </script>
+
+<counter-element></counter-element>
 ```
 
 ## License

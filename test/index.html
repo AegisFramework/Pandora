@@ -234,10 +234,91 @@
 				margin: 0;
 			}
 
-			custom-shadow-element {
-				display: block;
-			}
-		</style>
+		custom-shadow-element {
+			display: block;
+		}
+
+		lit-counter {
+			display: block;
+		}
+
+		lit-shadow-card {
+			display: block;
+		}
+
+		.decorated {
+			padding: 0.5rem;
+			background: #e8f5e9;
+			border-radius: 4px;
+			color: var(--color-success);
+		}
+
+		.consumer-demo {
+			padding: 0.5rem;
+			background: #fff3e0;
+			border-radius: 4px;
+			color: var(--color-warning);
+		}
+
+		.prop-demo {
+			font-size: 0.9rem;
+		}
+
+		.prop-demo p {
+			margin: 0.25rem 0;
+		}
+
+		.static-lit-demo {
+			padding: 0.5rem;
+			background: #e3f2fd;
+			border-radius: 4px;
+		}
+
+		.static-lit-demo h4 {
+			margin: 0 0 0.5rem;
+			color: #1565c0;
+		}
+
+		.static-lit-demo button {
+			padding: 0.25rem 0.5rem;
+			border: 1px solid #1565c0;
+			background: white;
+			color: #1565c0;
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		.slot-content-wrapper {
+			padding: 0.5rem;
+			background: #fce4ec;
+			border-radius: 4px;
+		}
+
+		.slot-content-wrapper h4 {
+			margin: 0 0 0.5rem;
+			color: #c2185b;
+		}
+
+		.projected-content {
+			padding: 0.5rem;
+			background: white;
+			border-radius: 4px;
+			border: 1px dashed #c2185b;
+		}
+
+		.middleware-demo {
+			padding: 0.5rem;
+			background: #f3e5f5;
+			border-radius: 4px;
+			color: #7b1fa2;
+		}
+
+		static-lit-template,
+		slot-content-demo,
+		middleware-demo {
+			display: block;
+		}
+	</style>
 	</head>
 
 	<body>
@@ -264,10 +345,66 @@
 				</div>
 			</div>
 
+			<h2>lit-html Integration</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>lit-html Counter</h3>
+					<p>Using html`` templates with @click binding</p>
+					<lit-counter></lit-counter>
+				</div>
+
+				<div class="card">
+					<h3>Shadow + lit-html + Constructable Stylesheets</h3>
+					<lit-shadow-card></lit-shadow-card>
+				</div>
+			</div>
+
+			<h2>Template Features</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>Static lit-html Template</h3>
+					<p>template() with lit-html function</p>
+					<static-lit-template></static-lit-template>
+				</div>
+
+				<div class="card">
+					<h3>slotContent Demo</h3>
+					<slot-content-demo>
+						<em>This is projected content!</em>
+						<br>It was in the original innerHTML.
+					</slot-content-demo>
+				</div>
+
+				<div class="card">
+					<h3>Type-Aware Middleware</h3>
+					<p>Check console for renderType logs</p>
+					<middleware-demo></middleware-demo>
+				</div>
+			</div>
+
+			<h2>Decorators</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>@Register Decorator</h3>
+					<decorated-component></decorated-component>
+				</div>
+
+				<div class="card">
+					<h3>@Consumer Decorator</h3>
+					<p>Bound to Registry.getState('app.message')</p>
+					<consumer-demo></consumer-demo>
+				</div>
+
+				<div class="card">
+					<h3>@Prop Decorator</h3>
+					<prop-demo label="Custom Label" custom-attr="Custom Value"></prop-demo>
+				</div>
+			</div>
+
 			<h2>State & Events</h2>
 			<div class="grid">
 				<div class="card">
-					<h3>Counter (State + Events)</h3>
+					<h3>Counter (String Templates)</h3>
 					<counter-component></counter-component>
 				</div>
 

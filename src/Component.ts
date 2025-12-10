@@ -1,4 +1,5 @@
-import { callAsync, deserializeCSS } from './Util';
+import { render as litRender, TemplateResult, nothing } from 'lit-html';
+import { callAsync, deserializeCSS, isTemplateResult } from './Util';
 import { Properties, Style, ReadyCallback } from './Types';
 
 /**
@@ -16,12 +17,12 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   public _connected: boolean;
   public _isReady: boolean;
   public _style: Style;
-  public _styleElement: HTMLStyleElement | null;
 
   // This is the tag name for the component
   static _tag?: string;
 
-  static _template?: string | ((context: any) => string);
+  // Template can be a string, a function returning string, or a function returning lit-html TemplateResult
+  static _template?: string | ((context: any) => string | TemplateResult | typeof nothing);
 
   // List of attributes to observe for changes
   // https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements#responding_to_attribute_changes
@@ -31,7 +32,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   static _onMount?: (component: Component, tag: string) => void;
   static _onUnmount?: (component: Component, tag: string) => void;
   static _onError?: (error: Error, component: Component, tag: string, lifecycle: string) => void;
-  static _applyMiddleware?: (type: string, component: Component, value: any) => any;
+  static _applyMiddleware?: (type: string, component: Component, value: any, renderType?: 'string' | 'lit') => any;
   static _hasMiddleware?: (type: string) => boolean;
 
   /**
@@ -75,7 +76,22 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     this._tag = value;
   }
 
-  static template(html: string | ((context: any) => string) | null = null, context: any = null): string | undefined | void {
+  /**
+   * Set or get the static template for this component class.
+   *
+   * Templates can be:
+   * - A string: `'<div>Hello</div>'`
+   * - A function returning string: `(ctx) => \`<div>\${ctx.props.name}</div>\``
+   * - A function returning lit-html: `(ctx) => html\`<div>\${ctx.props.name}</div>\``
+   *
+   * @param html - The template to set, or null to get the current template result
+   * @param context - The context to use when calling template functions (usually the component instance)
+   * @returns The rendered template when getting, void when setting
+   */
+  static template(
+    html: string | ((context: any) => string | TemplateResult | typeof nothing) | null = null,
+    context: any = null
+  ): string | TemplateResult | typeof nothing | undefined | void {
     if (html !== null) {
       this._template = html;
 
@@ -115,7 +131,6 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
 
     // Style Object for the component
     this._style = {};
-    this._styleElement = null;
   }
 
   // Determines the real (computed) width of the element
@@ -147,6 +162,12 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   get props(): P {
     return new Proxy(this._props, {
       get: (target, key: string) => {
+        // Check internal props first
+        if (key in target) {
+          return target[key as keyof P];
+        }
+
+        // Fallback to DOM attributes
         if (this.hasAttribute(key)) {
           let value: any = this.getAttribute(key);
 
@@ -161,11 +182,10 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
           }
 
           return value;
-        } else if (key in target) {
-          return target[key as keyof P];
         }
 
-        return null;
+        // Return undefined for missing props
+        return undefined;
       },
       set: () => {
         throw new Error('Component props should be set using the `setProps` function.');
@@ -212,6 +232,27 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   }
 
   /**
+   * Returns the original innerHTML content that was present before the component rendered.
+   *
+   * This is an alias for `_children`
+   *
+   * @example
+   * // String template
+   * render() {
+   *   return `<div class="wrapper">${this.slotContent}</div>`;
+   * }
+   *
+   * @example
+   * // lit-html template
+   * render() {
+   *   return html`<div class="wrapper">${this.slotContent}</div>`;
+   * }
+   */
+  get slotContent(): string {
+    return this._children;
+  }
+
+  /**
    * Returns whether the component is currently connected to the DOM.
    */
   get isConnected(): boolean {
@@ -237,41 +278,42 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   }
 
   /**
-	 * template - A simple function providing access to the basic HTML
-	 * structure of the component.
-	 *
-	 * @param {function|string} html - A string or function that renders the
-	 * component into a valid HTML structure.
-	 *
-	 * @returns {void|string} - Void or the HTML structure in a string
-	 */
-  template(html: string | ((context: any) => string) | null = null): string | undefined | void {
+   * Instance method to set or get the template.
+   * Delegates to the static template() method with this instance as context.
+   *
+   * @param html - The template to set, or null to get the current template result
+   * @returns The rendered template when getting, void when setting
+   */
+  template(
+    html: string | ((context: any) => string | TemplateResult | typeof nothing) | null = null
+  ): string | TemplateResult | typeof nothing | undefined | void {
     return (this.constructor as typeof Component).template(html, this);
   }
 
-  public _createStyleElement(): void {
-    // Check if there is a shared style element for the component
-    const sharedStyle = document.body.querySelector(`style#${(this.constructor as typeof Component).tag}`);
+  // Cache for the stylesheet to avoid recreating it per instance.
+  // Each subclass gets its own stylesheet via the constructor reference.
+  static _styleSheet: CSSStyleSheet | null = null;
 
-    // If there is, use it
-    if (sharedStyle instanceof HTMLStyleElement) {
-      this._styleElement = sharedStyle;
-    }
-
-    if (this._styleElement instanceof HTMLStyleElement) {
-      return;
-    }
-
-    // If there is no shared style element, create a new one
-    this._styleElement = document.createElement('style');
-    this._styleElement.id = (this.constructor as typeof Component).tag;
-
-    // For normal components, the style element is added to the body
-    document.body.prepend(this._styleElement);
-  }
-
+  /**
+   * Sets the component style. For normal components, styles are scoped to the
+   * component's tag name as a selector prefix and shared across all instances
+   * of the same component class.
+   *
+   * @param style - CSS object or string to apply
+   * @param reset - If true, replaces all styles; if false, merges with existing
+   * @returns The current style object
+   */
   setStyle(style: Style | string, reset: boolean = false): Style {
-    this._createStyleElement();
+    // Get the constructor to access the static stylesheet for this specific class
+    const staticComponent = this.constructor as typeof Component;
+
+    // Initialize the stylesheet if it doesn't exist for this class
+    if (!staticComponent._styleSheet) {
+      staticComponent._styleSheet = new CSSStyleSheet();
+    }
+
+    // Build the CSS text
+    let cssText = '';
 
     if (typeof style === 'object') {
       if (!reset) {
@@ -280,13 +322,25 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
         this._style = { ...style };
       }
 
-      this._styleElement!.innerHTML = deserializeCSS(this._style, (this.constructor as typeof Component).tag);
+      cssText = deserializeCSS(this._style, staticComponent.tag);
     } else if (typeof style === 'string') {
       if (!reset) {
-        this._styleElement!.innerHTML += style;
+        // Append to existing rules
+        const existingRules = Array.from(staticComponent._styleSheet.cssRules || [])
+          .map(rule => rule.cssText)
+          .join('\n');
+        cssText = existingRules + '\n' + style;
       } else {
-        this._styleElement!.innerHTML = style;
+        cssText = style;
       }
+    }
+
+    // Update the stylesheet
+    staticComponent._styleSheet.replaceSync(cssText);
+
+    // Adopt the stylesheet into the document
+    if (!document.adoptedStyleSheets.includes(staticComponent._styleSheet)) {
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, staticComponent._styleSheet];
     }
 
     return this._style;
@@ -605,40 +659,75 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   /**
    * Forces the component to be rendered again.
    *
-   * @returns A promise that resolves with the rendered HTML string
+   * @returns A promise that resolves when rendering is complete
    */
-  forceRender(): string | Promise<string> {
+  forceRender(): Promise<void> {
     return this._render();
   }
 
   /**
-   * Returns the HTML content for the component.
+   * Returns the content for the component.
    * Override this method to define the component's template.
    *
-   * @returns The HTML string to render
+   * You can return either:
+   * - A string (traditional HTML string)
+   * - A lit-html TemplateResult (for efficient DOM diffing)
+   * - `nothing` from lit-html (to render nothing)
+   *
+   * @example
+   * // String-based rendering
+   * render() {
+   *   return `<div>Hello ${this.state.name}</div>`;
+   * }
+   *
+   * @example
+   * // lit-html rendering
+   * import { html } from '@aegis-framework/pandora';
+   *
+   * render() {
+   *   return html`<div>Hello ${this.state.name}</div>`;
+   * }
+   *
+   * @returns The HTML string or lit-html TemplateResult to render
    */
-  render(): string {
+  render(): string | TemplateResult | typeof nothing {
     return '';
   }
 
-  public async _render(): Promise<string> {
-    let render = this.render;
+  public async _render(): Promise<void> {
+    let renderFn: () => string | TemplateResult | typeof nothing = this.render;
 
+    // Use static template if defined
     if ((this.constructor as typeof Component)._template !== undefined) {
-      render = this.template as () => string;
+      renderFn = this.template as () => string | TemplateResult | typeof nothing;
     }
 
-    let html = await callAsync<string>(render, this);
+    let result = await callAsync(renderFn, this);
 
-    html = html.trim();
+    // Determine render type for middleware
+    const renderType: 'string' | 'lit' = isTemplateResult(result) || result === nothing ? 'lit' : 'string';
 
     // Apply render middleware if available
     if (Component._hasMiddleware?.('render') && Component._applyMiddleware) {
-      html = Component._applyMiddleware('render', this, html);
+      result = Component._applyMiddleware('render', this, result, renderType);
     }
 
+    // Handle lit-html TemplateResult
+    if (isTemplateResult(result) || result === nothing) {
+      // Clear any non-lit-html content on first render
+      if (!this.hasAttribute('data-lit-rendered')) {
+        this.innerHTML = '';
+        this.setAttribute('data-lit-rendered', '');
+      }
+      litRender(result as TemplateResult | typeof nothing, this, { host: this });
+      return;
+    }
+
+    // Handle string-based rendering
+    const html = (result as string).trim();
+
     if (html === '') {
-      return '';
+      return;
     }
 
     const slot = this.dom.querySelector('slot');
@@ -652,8 +741,6 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
         this.innerHTML += this._children;
       }
     }
-
-    return html;
   }
 
   async connectedCallback(): Promise<void> {

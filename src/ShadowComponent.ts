@@ -1,15 +1,21 @@
+import { render as litRender, TemplateResult, nothing } from 'lit-html';
 import Component from './Component';
-import { callAsync, deserializeCSS } from './Util';
+import { callAsync, deserializeCSS, isTemplateResult } from './Util';
 import { Properties, Style } from './Types';
 
 /**
- * A component that uses Shadow DOM for encapsulation
+ * A component that uses Shadow DOM for encapsulation.
+ * Uses Constructable Stylesheets for high-performance styling.
  *
  * @template P - The type of the component's props (defaults to Properties)
  * @template S - The type of the component's state (defaults to Properties)
  */
 class ShadowComponent<P extends Properties = Properties, S extends Properties = Properties> extends Component<P, S> {
   public _shadowDOM: ShadowRoot;
+
+  // Cache for the stylesheet to avoid recreating it per instance.
+  // Each subclass gets its own stylesheet via the constructor reference.
+  static _styleSheet: CSSStyleSheet | null = null;
 
   constructor() {
     super();
@@ -18,8 +24,25 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
     this._shadowDOM = this.attachShadow({ mode: 'open' });
   }
 
-  setStyle(style: Style | string, reset: boolean = false): Style {
-    this._createStyleElement();
+  /**
+   * Sets the component style, these are scoped to the component's shadow root
+   * and shared across all instances of the same component class.
+   *
+   * @param style - CSS object or string to apply
+   * @param reset - If true, replaces all styles; if false, merges with existing
+   * @returns The current style object
+   */
+  override setStyle(style: Style | string, reset: boolean = false): Style {
+    // Get the constructor to access the static stylesheet for this specific class
+    const staticComponent = this.constructor as typeof ShadowComponent;
+
+    // Initialize the stylesheet if it doesn't exist for this class
+    if (!staticComponent._styleSheet) {
+      staticComponent._styleSheet = new CSSStyleSheet();
+    }
+
+    // Build the CSS text
+    let cssText = '';
 
     if (typeof style === 'object') {
       if (!reset) {
@@ -28,47 +51,66 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
         this._style = { ...style };
       }
 
-      this._styleElement!.innerHTML = deserializeCSS(this._style);
+      cssText = deserializeCSS(this._style);
     } else if (typeof style === 'string') {
       if (!reset) {
-        this._styleElement!.innerHTML += style;
+        // Append to existing rules
+        const existingRules = Array.from(staticComponent._styleSheet.cssRules || [])
+          .map(rule => rule.cssText)
+          .join('\n');
+        cssText = existingRules + '\n' + style;
       } else {
-        this._styleElement!.innerHTML = style;
+        cssText = style;
       }
     }
+
+    // Update the stylesheet
+    staticComponent._styleSheet.replaceSync(cssText);
+
+    // Adopt the stylesheet into this instance's shadow root
+    this._shadowDOM.adoptedStyleSheets = [staticComponent._styleSheet];
 
     return this._style;
   }
 
-  public override _createStyleElement(): void {
-    if (this._styleElement instanceof HTMLStyleElement) {
+
+  public override async _render(): Promise<void> {
+    let renderFn: () => string | TemplateResult | typeof nothing = this.render;
+
+    // Use static template if defined
+    if ((this.constructor as typeof Component)._template !== undefined) {
+      renderFn = this.template as () => string | TemplateResult | typeof nothing;
+    }
+
+    // Call the render function asynchronously
+    let result = await callAsync(renderFn, this);
+
+    // Determine render type for middleware
+    const renderType: 'string' | 'lit' = isTemplateResult(result) || result === nothing ? 'lit' : 'string';
+
+    // Apply render middleware if available
+    if (Component._hasMiddleware?.('render') && Component._applyMiddleware) {
+      result = Component._applyMiddleware('render', this, result, renderType);
+    }
+
+    // Handle lit-html TemplateResult
+    if (isTemplateResult(result) || result === nothing) {
+      litRender(result as TemplateResult | typeof nothing, this._shadowDOM, { host: this });
       return;
     }
 
-    this._styleElement = document.createElement('style');
-    this._shadowDOM.prepend(this._styleElement);
-  }
+    // Handle string-based rendering
+    const html = (result as string).trim();
 
-  public override async _render(): Promise<string> {
-    let render = this.render;
+    // Remove all children
+    const children = Array.from(this._shadowDOM.childNodes);
 
-    // Check if a template has been set to this component, and if that's the
-    // case, use that instead of the render function to render the component's
-    // HTML code.
-    if ((this.constructor as typeof Component)._template !== undefined) {
-      render = this.template as () => string;
+    for (const child of children) {
+      child.remove();
     }
 
-    // Call the render function asynchronously and set the HTML from it to the
-    // component.
-    const html = await callAsync(render, this);
-
-    // Remove all children except the style element
-    const children = Array.from(this._shadowDOM.childNodes);
-    for (const child of children) {
-      if (child !== this._styleElement) {
-        child.remove();
-      }
+    if (html === '') {
+      return;
     }
 
     // Create a template to parse the HTML and append the content
@@ -76,8 +118,6 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
     template.innerHTML = html;
 
     this._shadowDOM.appendChild(template.content);
-
-    return html;
   }
 
   get dom(): HTMLElement {

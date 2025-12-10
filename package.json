@@ -1,6 +1,6 @@
 {
 	"name": "@aegis-framework/pandora",
-	"version": "0.3.1",
+	"version": "0.4.0",
 	"description": "Aegis Framework Web Components Library",
 	"type": "module",
 	"main": "./dist/pandora.js",
@@ -46,7 +46,10 @@
 		"check": "tsc --noEmit",
 		"lint": "eslint ./src/**/*.ts",
 		"clean": "rm -rf dist",
-		"test": "http-server -p 3000 -c-1"
+		"test": "bun test/index.html"
+	},
+	"dependencies": {
+		"lit-html": "^3.0.0"
 	},
 	"devDependencies": {
 		"@babel/eslint-parser": "^7.28.5",
@@ -55,7 +58,6 @@
 		"@typescript-eslint/parser": "^8.48.1",
 		"bun": "^1.3.3",
 		"eslint": "^9.39.1",
-		"http-server": "^14.1.1",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.48.1"
 	},

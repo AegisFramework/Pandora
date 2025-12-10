@@ -16,6 +16,22 @@ export function callAsync<T>(callable: (...args: any[]) => T, context: any, ...a
 }
 
 /**
+ * Checks if a value is a lit-html TemplateResult
+ * This allows Components to detect whether render() returned a string or a TemplateResult
+ * and handle them appropriately.
+ *
+ * @param value - The value to check
+ * @returns True if the value is a lit-html TemplateResult
+ */
+export function isTemplateResult(value: unknown): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    '_$litType$' in (value as object)
+  );
+}
+
+/**
  * Converts a CSS object to a CSS string
  * @param object - The CSS object to convert
  * @param encapsulation - Optional selector to encapsulate the CSS

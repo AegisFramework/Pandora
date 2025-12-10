@@ -9,7 +9,8 @@ type StateSubscriber<T = unknown> = (newValue: T, oldValue: T | undefined) => vo
 type LifecycleCallback = (component: Component, tag: string) => void;
 type ErrorCallback = (error: Error, component: Component, tag: string, lifecycle: string) => void;
 type MiddlewareType = 'props' | 'state' | 'render';
-type Middleware = (component: Component, value: any) => any;
+type RenderType = 'string' | 'lit';
+type Middleware = (component: Component, value: any, renderType?: RenderType) => any;
 type ComponentLoader = () => Promise<ComponentClass | { default: ComponentClass }>;
 
 interface ComponentStats {
@@ -58,7 +59,7 @@ class Registry {
     Component._onMount = (component, tag) => this._notifyMount(component, tag);
     Component._onUnmount = (component, tag) => this._notifyUnmount(component, tag);
     Component._onError = (error, component, tag, lifecycle) => this._notifyError(error, component, tag, lifecycle);
-    Component._applyMiddleware = (type, component, value) => this._applyMiddleware(type as MiddlewareType, component, value);
+    Component._applyMiddleware = (type, component, value, renderType) => this._applyMiddleware(type as MiddlewareType, component, value, renderType);
     Component._hasMiddleware = (type) => this._hasMiddleware(type as MiddlewareType);
   }
 
@@ -727,8 +728,19 @@ class Registry {
    * Register middleware to intercept props, state, or render operations
    *
    * @param type - The type of middleware: 'props', 'state', or 'render'
-   * @param middleware - Function that receives (component, value) and returns the modified value
+   * @param middleware - Function that receives (component, value, renderType?) and returns the modified value.
+   *
    * @returns Unsubscribe function
+   *
+   * @example
+   * // Type-aware render middleware
+   * Registry.use('render', (component, value, renderType) => {
+   *   if (renderType === 'string') {
+   *     return value.toUpperCase();
+   *   }
+   *   // For lit-html, return as-is or wrap
+   *   return value;
+   * });
    */
   static use(type: MiddlewareType, middleware: Middleware): () => void {
     this._init();
@@ -740,14 +752,18 @@ class Registry {
   /**
    * Apply middleware to a value
    *
+   * @param type - The middleware type
+   * @param component - The component instance
+   * @param value - The value to process
+   * @param renderType - For 'render' middleware, indicates if template is 'string' or 'lit'
    * @internal
    */
-  static _applyMiddleware(type: MiddlewareType, component: Component, value: any): any {
+  static _applyMiddleware(type: MiddlewareType, component: Component, value: any, renderType?: RenderType): any {
     let result = value;
 
     this.middleware[type].forEach((middleware) => {
       try {
-        result = middleware(component, result);
+        result = middleware(component, result, renderType);
       } catch (error) {
         console.error(`[Pandora] Error in ${type} middleware:`, error);
       }
