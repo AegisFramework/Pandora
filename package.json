@@ -21,10 +21,10 @@
 	"sideEffects": false,
 	"repository": {
 		"type": "git",
-		"url": "https://gitlab.com/AegisFramework/Pandora.git"
+		"url": "https://github.com/AegisFramework/Pandora.git"
 	},
 	"bugs": {
-		"url": "https://gitlab.com/AegisFramework/Pandora/issues"
+		"url": "https://github.com/AegisFramework/Pandora/issues"
 	},
 	"homepage": "https://aegisframework.com/",
 	"author": "Diana Islas Ocampo <dev@hyuchia.com>",
