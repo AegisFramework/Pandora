@@ -314,9 +314,25 @@
 		}
 
 		static-lit-template,
+		async-static-template,
 		slot-content-demo,
-		middleware-demo {
+		middleware-demo,
+		async-render-demo {
 			display: block;
+		}
+
+		.async-template-demo {
+			padding: 0.5rem;
+			background: #fff8e1;
+			border-radius: 4px;
+			color: #f57f17;
+		}
+
+		.async-demo {
+			padding: 0.5rem;
+			background: #e8eaf6;
+			border-radius: 4px;
+			color: #3949ab;
 		}
 	</style>
 	</head>
@@ -368,11 +384,23 @@
 				</div>
 
 				<div class="card">
+					<h3>Async Static Template</h3>
+					<p>template() with async function</p>
+					<async-static-template></async-static-template>
+				</div>
+
+				<div class="card">
 					<h3>slotContent Demo</h3>
 					<slot-content-demo>
 						<em>This is projected content!</em>
 						<br>It was in the original innerHTML.
 					</slot-content-demo>
+				</div>
+
+				<div class="card">
+					<h3>Async Render</h3>
+					<p>render() can be async for data fetching</p>
+					<async-render-demo></async-render-demo>
 				</div>
 
 				<div class="card">

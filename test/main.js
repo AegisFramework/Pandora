@@ -543,6 +543,33 @@ Registry.register('static-lit-template', StaticLitTemplate);
 console.log('[Static Template] lit-html template registered');
 
 // ==========================================
+// Async Static Template
+// ==========================================
+class AsyncStaticTemplate extends Component {
+	constructor() {
+		super();
+		this.props = { loaded: false };
+	}
+}
+
+// Set async static template
+AsyncStaticTemplate.template(async (ctx) => {
+	if (!ctx.props.loaded) {
+		// Simulate async data fetch
+		await new Promise(resolve => setTimeout(resolve, 800));
+		ctx._props.loaded = true; // Direct assignment to avoid re-render loop
+	}
+	return html`
+		<div class="async-template-demo">
+			${ctx.props.loaded ? 'Async template loaded!' : 'Loading...'}
+		</div>
+	`;
+});
+
+Registry.register('async-static-template', AsyncStaticTemplate);
+console.log('[Async Static Template] Registered');
+
+// ==========================================
 // slotContent Demo
 // ==========================================
 class SlotContentDemo extends Component {
@@ -560,6 +587,37 @@ class SlotContentDemo extends Component {
 
 Registry.register('slot-content-demo', SlotContentDemo);
 console.log('[slotContent] Demo component registered');
+
+// ==========================================
+// Async Render Demo
+// ==========================================
+class AsyncRenderDemo extends Component {
+	constructor() {
+		super();
+		this.state = { loading: true, data: null };
+	}
+
+	async render() {
+		if (this.state.loading) {
+			// Simulate async data fetch
+			await new Promise(resolve => setTimeout(resolve, 1000));
+			this.state.data = { message: 'Data loaded!' };
+			this.state.loading = false;
+		}
+
+		return html`
+			<div class="async-demo">
+				${this.state.loading
+					? html`<span>Loading...</span>`
+					: html`<span>${this.state.data.message}</span>`
+				}
+			</div>
+		`;
+	}
+}
+
+Registry.register('async-render-demo', AsyncRenderDemo);
+console.log('[Async Render] Demo component registered');
 
 // ==========================================
 // Type-Aware Middleware Demo

@@ -22,7 +22,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   static _tag?: string;
 
   // Template can be a string, a function returning string, or a function returning lit-html TemplateResult
-  static _template?: string | ((context: any) => string | TemplateResult | typeof nothing);
+  // Functions can be async (return a Promise)
+  static _template?: string | ((context: any) => string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing>);
 
   // List of attributes to observe for changes
   // https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements#responding_to_attribute_changes
@@ -83,15 +84,16 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * - A string: `'<div>Hello</div>'`
    * - A function returning string: `(ctx) => \`<div>\${ctx.props.name}</div>\``
    * - A function returning lit-html: `(ctx) => html\`<div>\${ctx.props.name}</div>\``
+   * - An async function: `async (ctx) => { const data = await fetch(); return html\`...\`; }`
    *
    * @param html - The template to set, or null to get the current template result
    * @param context - The context to use when calling template functions (usually the component instance)
    * @returns The rendered template when getting, void when setting
    */
   static template(
-    html: string | ((context: any) => string | TemplateResult | typeof nothing) | null = null,
+    html: string | ((context: any) => string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing>) | null = null,
     context: any = null
-  ): string | TemplateResult | typeof nothing | undefined | void {
+  ): string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing> | undefined | void {
     if (html !== null) {
       this._template = html;
 
@@ -285,8 +287,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @returns The rendered template when getting, void when setting
    */
   template(
-    html: string | ((context: any) => string | TemplateResult | typeof nothing) | null = null
-  ): string | TemplateResult | typeof nothing | undefined | void {
+    html: string | ((context: any) => string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing>) | null = null
+  ): string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing> | undefined | void {
     return (this.constructor as typeof Component).template(html, this);
   }
 
@@ -522,8 +524,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state/props object
    * @returns A promise that resolves when the pre-update logic completes
    */
-  public willUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
-    return Promise.resolve();
+  public async willUpdate(_origin: string, _property: string, _oldValue: unknown, _newValue: unknown, _oldObject: unknown, _newObject: unknown): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -538,8 +540,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state/props object
    * @returns A promise that resolves when the update logic completes
    */
-  public update(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
-    return Promise.resolve();
+  public async update(_origin: string, _property: string, _oldValue: unknown, _newValue: unknown, _oldObject: unknown, _newObject: unknown): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -554,8 +556,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state/props object
    * @returns A promise that resolves when the post-update logic completes
    */
-  public didUpdate(origin: string, property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
-    return Promise.resolve();
+  public async didUpdate(_origin: string, _property: string, _oldValue: unknown, _newValue: unknown, _oldObject: unknown, _newObject: unknown): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -569,8 +571,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new state object
    * @returns A promise that resolves when the state update logic completes
    */
-  public onStateUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
-    return Promise.resolve();
+  public async onStateUpdate(_property: string, _oldValue: unknown, _newValue: unknown, _oldObject: unknown, _newObject: unknown): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -584,8 +586,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newObject - The new props object
    * @returns A promise that resolves when the props update logic completes
    */
-  public onPropsUpdate(property: string, oldValue: unknown, newValue: unknown, oldObject: unknown, newObject: unknown): Promise<void> {
-    return Promise.resolve();
+  public async onPropsUpdate(_property: string, _oldValue: unknown, _newValue: unknown, _oldObject: unknown, _newObject: unknown): Promise<void> {
+    // Base implementation does nothing
   }
 
   /*
@@ -600,8 +602,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the pre-mount logic completes
    */
-  public willMount(): Promise<void> {
-    return Promise.resolve();
+  public async willMount(): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -610,8 +612,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the post-mount logic completes
    */
-  public didMount(): Promise<void> {
-    return Promise.resolve();
+  public async didMount(): Promise<void> {
+    // Base implementation does nothing
   }
 
   /*
@@ -626,8 +628,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the pre-unmount logic completes
    */
-  public willUnmount(): Promise<void> {
-    return Promise.resolve();
+  public async willUnmount(): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -636,8 +638,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the unmount logic completes
    */
-  public unmount(): Promise<void> {
-    return Promise.resolve();
+  public async unmount(): Promise<void> {
+    // Base implementation does nothing
   }
 
   /**
@@ -646,8 +648,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @returns A promise that resolves when the post-unmount logic completes
    */
-  public didUnmount(): Promise<void> {
-    return Promise.resolve();
+  public async didUnmount(): Promise<void> {
+    // Base implementation does nothing
   }
 
   /*
@@ -673,6 +675,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * - A string (traditional HTML string)
    * - A lit-html TemplateResult (for efficient DOM diffing)
    * - `nothing` from lit-html (to render nothing)
+   * - A Promise resolving to any of the above (for async data fetching)
    *
    * @example
    * // String-based rendering
@@ -682,24 +685,31 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    *
    * @example
    * // lit-html rendering
-   * import { html } from '@aegis-framework/pandora';
-   *
    * render() {
    *   return html`<div>Hello ${this.state.name}</div>`;
    * }
    *
-   * @returns The HTML string or lit-html TemplateResult to render
+   * @example
+   * // Async rendering
+   * async render() {
+   *   const data = await fetchData();
+   *   return html`<div>${data.name}</div>`;
+   * }
+   *
+   * @returns The HTML string, lit-html TemplateResult, or Promise resolving to either
    */
-  render(): string | TemplateResult | typeof nothing {
+  render(): string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing> {
     return '';
   }
 
   public async _render(): Promise<void> {
-    let renderFn: () => string | TemplateResult | typeof nothing = this.render;
+    type RenderResult = string | TemplateResult | typeof nothing;
 
-    // Use static template if defined
+    // Default to render(), but use template() if a static template was defined
+    let renderFn: () => RenderResult | Promise<RenderResult> = this.render;
+
     if ((this.constructor as typeof Component)._template !== undefined) {
-      renderFn = this.template as () => string | TemplateResult | typeof nothing;
+      renderFn = () => this.template() as RenderResult | Promise<RenderResult>;
     }
 
     let result = await callAsync(renderFn, this);

@@ -260,13 +260,15 @@ const items = element.queryAll('.item');
 
 ```javascript
 // Force re-render
-element.forceRender();
+await element.forceRender();
 
 // Register ready callback
 element.ready(() => {
   console.log('Component is ready!');
 });
 ```
+
+> **Note:** The `render()` method supports both sync and async returns. You can return a value directly, use `async/await`, or return a Promise. The component will automatically await Promises before updating the DOM.
 
 ### Lifecycle Hooks
 
@@ -366,6 +368,12 @@ MyComponent.template((context) => html`
     <button @click=${() => context.handleClick()}>Click me</button>
   </div>
 `);
+
+// Async function (for data fetching)
+MyComponent.template(async (context) => {
+  const data = await fetchData(context.props.id);
+  return html`<div>${data.content}</div>`;
+});
 ```
 
 ## lit-html Integration
@@ -412,6 +420,20 @@ render() {
       <button @click=${() => this.handleClick()}>Click</button>
     </div>
   `;
+}
+
+// Async render (fetch data before rendering)
+// Can use async/await OR return a Promise directly
+async render() {
+  const data = await fetchUserData();
+  return html`<div>Hello, ${data.name}!</div>`;
+}
+
+// Promise-based render (no async keyword needed)
+render() {
+  return fetchUserData().then(data => 
+    html`<div>Hello, ${data.name}!</div>`
+  );
 }
 ```
 
