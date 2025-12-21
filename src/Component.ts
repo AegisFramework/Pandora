@@ -165,7 +165,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     return new Proxy(this._props, {
       get: (target, key: string) => {
         // Check internal props first
-        if (key in target) {
+        if (key in target && typeof target[key as keyof P] !== 'undefined') {
           return target[key as keyof P];
         }
 
