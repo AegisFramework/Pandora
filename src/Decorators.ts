@@ -80,7 +80,9 @@ export function Consumer(stateKey: string) {
     target.connectedCallback = async function (this: Component & Record<symbol, any>) {
       // Subscribe to Registry state changes
       this[unsubKey] = Registry.subscribe(stateKey, (newVal: unknown) => {
-        // Update the property value (this won't trigger Registry.setState due to equality check)
+        // Skip if value hasn't changed (prevents double render when this component triggered the change)
+        if (this[valueKey] === newVal) return;
+
         this[valueKey] = newVal;
 
         // Trigger a re-render if the component is ready
@@ -171,7 +173,8 @@ export function Prop(attributeName?: string) {
     const valueKey = Symbol(`__pandora_prop_${propertyKey}`);
 
     // Store attribute name for observedAttributes
-    if (!target.constructor._observedAttributes) {
+    // Use hasOwn to avoid pushing to the parent class's shared array
+    if (!Object.hasOwn(target.constructor, '_observedAttributes')) {
       target.constructor._observedAttributes = [];
     }
     if (!target.constructor._observedAttributes.includes(attrName)) {

@@ -17,6 +17,11 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   public _connected: boolean;
   public _isReady: boolean;
   public _style: Style;
+  public _updatingProps: boolean;
+  public _renderId: number;
+  public _propsProxy: P | null;
+  public _stateProxy: S | null;
+  public _hasBeenMounted: boolean;
 
   // This is the tag name for the component
   static _tag?: string;
@@ -116,7 +121,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   constructor() {
     super();
 
-    this._children = this.innerHTML.trim();
+    this._children = '';
 
     // State Object for the component
     this._state = {} as S;
@@ -133,6 +138,12 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
 
     // Style Object for the component
     this._style = {};
+
+    this._updatingProps = false;
+    this._renderId = 0;
+    this._propsProxy = null;
+    this._stateProxy = null;
+    this._hasBeenMounted = false;
   }
 
   // Determines the real (computed) width of the element
@@ -162,64 +173,72 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   }
 
   get props(): P {
-    return new Proxy(this._props, {
-      get: (target, key: string) => {
-        // Check internal props first
-        if (key in target && typeof target[key as keyof P] !== 'undefined') {
-          return target[key as keyof P];
-        }
-
-        // Fallback to DOM attributes
-        if (this.hasAttribute(key)) {
-          let value: any = this.getAttribute(key);
-
-          if (typeof value === 'string') {
-            if (value === 'false') {
-              value = false;
-            } else if (value === 'true' || value === '') {
-              value = true;
-            } else if (!isNaN(Number(value))) {
-              value = value.includes('.') ? parseFloat(value) : parseInt(value);
-            }
+    if (!this._propsProxy) {
+      this._propsProxy = new Proxy(this._props, {
+        get: (target, key: string) => {
+          // Check internal props first
+          if (key in target && typeof target[key as keyof P] !== 'undefined') {
+            return target[key as keyof P];
           }
 
-          return value;
-        }
+          // Fallback to DOM attributes
+          if (this.hasAttribute(key)) {
+            let value: any = this.getAttribute(key);
 
-        // Return undefined for missing props
-        return undefined;
-      },
-      set: () => {
-        throw new Error('Component props should be set using the `setProps` function.');
-      }
-    }) as P;
+            if (typeof value === 'string') {
+              if (value === 'false') {
+                value = false;
+              } else if (value === 'true' || value === '') {
+                value = true;
+              } else if (!isNaN(Number(value))) {
+                value = value.includes('.') ? parseFloat(value) : parseInt(value);
+              }
+            }
+
+            return value;
+          }
+
+          // Return undefined for missing props
+          return undefined;
+        },
+        set: () => {
+          throw new Error('Component props should be set using the `setProps` function.');
+        }
+      }) as P;
+    }
+    return this._propsProxy;
   }
 
   set props(value: P) {
     if (!this._connected) {
       this._props = { ...this._props, ...value };
+      this._propsProxy = null;
     } else {
       throw new Error('Component props cannot be directly assigned. Use the `setProps` function instead.');
     }
   }
 
   get state(): S {
-    return new Proxy(this._state, {
-      get: (target, key: string) => target[key as keyof S],
-      set: (target, key: string, value) => {
-        if (!this._connected) {
-          (target as any)[key] = value;
-          return true;
-        } else {
-          throw new Error('Component state should be set using the `setState` function instead.');
+    if (!this._stateProxy) {
+      this._stateProxy = new Proxy(this._state, {
+        get: (target, key: string) => target[key as keyof S],
+        set: (target, key: string, value) => {
+          if (!this._connected) {
+            (target as any)[key] = value;
+            return true;
+          } else {
+            throw new Error('Component state should be set using the `setState` function instead.');
+          }
         }
-      }
-    }) as S;
+      }) as S;
+    }
+    return this._stateProxy;
   }
 
   set state(value: S) {
     if (!this._connected) {
       this._state = { ...this._state, ...value };
+      this._stateProxy = null;
     } else {
       throw new Error('Component state should be set using the `setState` function instead.');
     }
@@ -266,6 +285,14 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    */
   get isReady(): boolean {
     return this._isReady;
+  }
+
+  /**
+   * Returns whether this is the first time the component is being mounted.
+   * Useful in didMount() to avoid adding duplicate event listeners on reconnect.
+   */
+  get isFirstMount(): boolean {
+    return !this._hasBeenMounted;
   }
 
   /**
@@ -358,6 +385,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
 
     const oldState = { ...this._state };
     this._state = { ...this._state, ...processedState };
+    this._stateProxy = null;
 
     for (const key of Object.keys(processedState)) {
       this.updateCallback(key, oldState[key as keyof S], this._state[key as keyof S], 'state', oldState, this._state);
@@ -374,12 +402,15 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
 
     const oldProps = { ...this._props };
     this._props = { ...this._props, ...processedProps };
+    this._propsProxy = null;
 
     for (const key of Object.keys(processedProps)) {
       this.updateCallback(key, oldProps[key as keyof P], this._props[key as keyof P], 'props', oldProps, this._props);
     }
 
+    this._updatingProps = true;
     this._setPropAttributes(true);
+    this._updatingProps = false;
   }
 
   public _setPropAttributes(update: boolean = false): void {
@@ -607,12 +638,23 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   }
 
   /**
-   * Called after the component is mounted to the DOM.
-   * Override this method to perform actions after the component is rendered.
+   * Called after the component is mounted to the DOM for the first time.
+   * Use this for one-time setup: event listeners, subscriptions, intervals, etc.
+   * This will NOT be called on reconnect — use didReconnect() for that.
    *
    * @returns A promise that resolves when the post-mount logic completes
    */
   public async didMount(): Promise<void> {
+    // Base implementation does nothing
+  }
+
+  /**
+   * Called after the component is re-inserted into the DOM (not on first mount).
+   * Use this for reconnect-specific logic: refreshing data, re-syncing state, etc.
+   *
+   * @returns A promise that resolves when the reconnect logic completes
+   */
+  public async didReconnect(): Promise<void> {
     // Base implementation does nothing
   }
 
@@ -705,6 +747,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   public async _render(): Promise<void> {
     type RenderResult = string | TemplateResult | typeof nothing;
 
+    const renderId = ++this._renderId;
+
     // Default to render(), but use template() if a static template was defined
     let renderFn: () => RenderResult | Promise<RenderResult> = this.render;
 
@@ -713,6 +757,9 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     }
 
     let result = await callAsync(renderFn, this);
+
+    // Bail if a newer render has started
+    if (renderId !== this._renderId) return;
 
     // Determine render type for middleware
     const renderType: 'string' | 'lit' = isTemplateResult(result) || result === nothing ? 'lit' : 'string';
@@ -743,7 +790,9 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
     const slot = this.dom.querySelector('slot');
 
     if (slot !== null) {
-      slot.replaceWith(html);
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      slot.replaceWith(template.content);
     } else {
       this.innerHTML = html;
 
@@ -779,16 +828,31 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
         }
       }
 
+      // Capture original children on first mount (before rendering overwrites innerHTML).
+      // This must happen in connectedCallback, not the constructor, because the
+      // HTML parser may not have inserted children yet at constructor time.
+      const firstMount = !this._hasBeenMounted;
+
+      if (firstMount) {
+        this._children = this.innerHTML.trim();
+      }
+
       // Set the initial prop attributes for the component using the given props
       this._setPropAttributes(false);
 
       // Run the Mount Cycle
       await this.willMount();
       await this._render();
-      await this.didMount();
+
+      if (firstMount) {
+        await this.didMount();
+      } else {
+        await this.didReconnect();
+      }
 
       // Set the component as ready
       this._isReady = true;
+      this._hasBeenMounted = true;
 
       // Execute and clear ready callbacks
       const callbacks = [...this._ready];
@@ -813,10 +877,10 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
   }
 
   ready(callback: ReadyCallback): void {
-    this._ready.push(callback);
-
     if (this._isReady) {
       callback.call(this);
+    } else {
+      this._ready.push(callback);
     }
   }
 
@@ -831,6 +895,8 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
 
       // Set the state as disconnected
       this._connected = false;
+      this._isReady = false;
+      this._ready = [];
 
       // Notify Registry of unmount
       if (Component._onUnmount) {
@@ -875,7 +941,7 @@ class Component<P extends Properties = Properties, S extends Properties = Proper
    * @param newValue - The new value of the attribute
    */
   attributeChangedCallback(property: string, oldValue: string | null, newValue: string | null): void {
-    if (oldValue !== newValue) {
+    if (oldValue !== newValue && !this._updatingProps) {
       this.updateCallback(property, oldValue, newValue, 'attribute');
     }
   }

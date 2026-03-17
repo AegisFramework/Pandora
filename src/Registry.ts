@@ -118,14 +118,14 @@ class Registry {
       const proto = component.prototype as unknown as Record<string, unknown>;
       const protoMethods = Object.getOwnPropertyNames(proto);
 
-      // Create a temporary instance to get default state/props. This avoids calling
-      // the constructor's side effects
-      const tempInstance = Object.create(proto);
+      // Create a temporary instance to get default state/props
+      let tempInstance: Record<string, unknown> = {};
 
       try {
-        component.call(tempInstance);
-      } catch {
-        // Just skip state/props merging if the constructor fails
+        tempInstance = Reflect.construct(component, [], component) as unknown as Record<string, unknown>;
+      } catch (error) {
+        // If constructor fails (e.g. requires DOM), skip state/props merging
+        this.log(`Could not extract defaults for <${tag}> during evolve:`, error);
       }
 
       document.querySelectorAll(tag).forEach((instance) => {
@@ -635,12 +635,13 @@ class Registry {
           }
 
           // Get default state/props from the real component
-          const tempInstance = Object.create(proto);
+          let tempInstance: Record<string, unknown> = {};
 
           try {
-            RealComponent.call(tempInstance);
-          } catch {
+            tempInstance = Reflect.construct(RealComponent, [], RealComponent) as unknown as Record<string, unknown>;
+          } catch (error) {
             // If constructor fails, skip state/props initialization
+            registry.log(`Could not extract defaults for lazy <${tag}>:`, error);
           }
 
           // Apply default state from real component

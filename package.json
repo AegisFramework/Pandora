@@ -1,6 +1,6 @@
 {
 	"name": "@aegis-framework/pandora",
-	"version": "0.4.2",
+	"version": "0.5.0",
 	"description": "Aegis Framework Web Components Library",
 	"type": "module",
 	"main": "./dist/pandora.js",
@@ -18,7 +18,9 @@
 			"default": "./dist/pandora.browser.js"
 		}
 	},
-	"sideEffects": false,
+	"sideEffects": [
+		"./dist/pandora.browser.js"
+	],
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/AegisFramework/Pandora.git"

@@ -120,7 +120,14 @@ class MyCounter extends Component {
   @Consumer('app.theme')
   theme!: string;
 
-  state = { count: 0 };
+  constructor() {
+    super();
+    this.state = { count: 0 };
+  }
+
+  onStateUpdate() {
+    this.forceRender();
+  }
 
   render() {
     return html`
@@ -174,14 +181,12 @@ class MyShadowComponent extends ShadowComponent {
     this.props = { text: '' };
   }
 
-  willMount() {
+  async willMount() {
     // Set scoped styles
     this.setStyle({
       ':host': { display: 'block' },
       h2: { color: 'blue' }
     });
-
-    return Promise.resolve();
   }
 
   render() {
@@ -190,6 +195,8 @@ class MyShadowComponent extends ShadowComponent {
   }
 }
 ```
+
+> **Note:** In `ShadowComponent`, use `this.shadowRoot` instead of `this.dom` to access the shadow root, and use native `<slot>` elements for content projection instead of `slotContent`.
 
 ## API Reference
 
@@ -204,18 +211,21 @@ class MyShadowComponent extends ShadowComponent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `props` | `object` | Component properties (read via proxy) |
-| `state` | `object` | Internal component state |
-| `dom` | `HTMLElement` | Reference to the component's DOM |
+| `props` | `object` | Component properties (read via proxy, set via `setProps()`) |
+| `state` | `object` | Internal component state (set via `setState()`) |
+| `dom` | `HTMLElement` | Reference to the component's DOM element |
 | `slotContent` | `string` | Original innerHTML content before rendering (for content projection) |
 | `width` | `number` | Computed width in pixels |
 | `height` | `number` | Computed height in pixels |
 | `isConnected` | `boolean` | Whether the component is connected to the DOM |
 | `isReady` | `boolean` | Whether the component has completed its initial mount |
+| `isFirstMount` | `boolean` | Whether this is the first time the component is being mounted (as opposed to a reconnect) |
 
 ### Methods
 
 #### State & Props
+
+`setState()` and `setProps()` trigger the update lifecycle (`willUpdate` -> `update` -> `didUpdate` and `onStateUpdate`/`onPropsUpdate`), but they do **not** automatically re-render the component. Call `forceRender()` to update the DOM after state or props changes.
 
 ```javascript
 // Update props (triggers update cycle)
@@ -223,6 +233,9 @@ element.setProps({ title: 'New Title' });
 
 // Update state (triggers update cycle)
 element.setState({ count: 5 });
+
+// Re-render the component
+element.forceRender();
 
 // Set component styles
 element.setStyle({
@@ -262,7 +275,7 @@ const items = element.queryAll('.item');
 // Force re-render
 await element.forceRender();
 
-// Register ready callback
+// Register ready callback (runs immediately if already ready)
 element.ready(() => {
   console.log('Component is ready!');
 });
@@ -272,12 +285,13 @@ element.ready(() => {
 
 ### Lifecycle Hooks
 
-Override these methods to hook into the component lifecycle:
+Override these methods to hook into the component lifecycle. All lifecycle hooks are async.
 
 #### Mount Cycle
 
-- `willMount()` - Called before the component is rendered
-- `didMount()` - Called after the component is rendered
+- `willMount()` - Called before the component is rendered (runs on every mount and reconnect)
+- `didMount()` - Called after the component is rendered **for the first time only**
+- `didReconnect()` - Called after the component is re-inserted into the DOM (not on first mount)
 
 #### Update Cycle
 
@@ -297,19 +311,31 @@ The `origin` parameter can be `'props'`, `'state'`, or `'attribute'` depending o
 
 ```javascript
 class MyComponent extends Component {
-  willMount() {
+  async willMount() {
+    // Runs on every mount (first and reconnect)
     console.log('About to mount');
-    return Promise.resolve();
   }
 
-  didMount() {
-    console.log('Mounted!');
-    return Promise.resolve();
+  async didMount() {
+    // Only runs once — safe for listeners, subscriptions, intervals
+    this.on('click', () => this.handleClick());
+    console.log('Mounted for the first time!');
   }
 
-  onPropsUpdate(property, oldValue, newValue) {
+  async didReconnect() {
+    // Runs when re-inserted into the DOM (e.g., after being moved)
+    console.log('Reconnected — refreshing data');
+    await this.refreshData();
+  }
+
+  async onStateUpdate(property, oldValue, newValue) {
+    // Re-render when state changes
+    this.forceRender();
+  }
+
+  async onPropsUpdate(property, oldValue, newValue) {
     console.log(`Prop ${property} changed from ${oldValue} to ${newValue}`);
-    return Promise.resolve();
+    this.forceRender();
   }
 }
 ```
@@ -322,9 +348,11 @@ To react to HTML attribute changes, define which attributes to observe:
 class MyComponent extends Component {
   static observedAttributes = ['title', 'count', 'disabled'];
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    // This is called automatically, which triggers the update cycle
-    // You can also override onPropsUpdate to handle attribute changes
+  // Attribute changes automatically trigger the update cycle,
+  // which calls onPropsUpdate. Override it to react:
+  async onPropsUpdate(property, oldValue, newValue) {
+    console.log(`${property} changed to ${newValue}`);
+    this.forceRender();
   }
 }
 ```
@@ -336,6 +364,7 @@ You can use HTML templates instead of the render method:
 ```html
 <template id="my-component">
   <div class="wrapper">
+    <h2>Static template content</h2>
     <!-- For light DOM components, use slotContent in render() instead -->
     <!-- For ShadowComponent, use native <slot> -->
   </div>
@@ -345,14 +374,10 @@ You can use HTML templates instead of the render method:
 Or set templates programmatically:
 
 ```javascript
-// String template
-MyComponent.template(`
-  <div class="wrapper">
-    <h2>{{title}}</h2>
-  </div>
-`);
+// Static string template (no interpolation - for fixed HTML content)
+MyComponent.template('<div class="wrapper"><h2>Hello</h2></div>');
 
-// Function returning string
+// Function returning string (use for dynamic content)
 MyComponent.template((context) => `
   <div class="wrapper">
     <h2>${context.props.title}</h2>
@@ -375,6 +400,8 @@ MyComponent.template(async (context) => {
   return html`<div>${data.content}</div>`;
 });
 ```
+
+> **Note:** When you set a static template via `MyComponent.template(...)`, all existing mounted instances of that component are automatically re-rendered.
 
 ## lit-html Integration
 
@@ -431,7 +458,7 @@ async render() {
 
 // Promise-based render (no async keyword needed)
 render() {
-  return fetchUserData().then(data => 
+  return fetchUserData().then(data =>
     html`<div>Hello, ${data.name}!</div>`
   );
 }
@@ -535,7 +562,7 @@ class MyButton extends Component {
 
 ### @Consumer(stateKey)
 
-Binds a class property to global Registry state. Automatically subscribes on connect and unsubscribes on disconnect:
+Binds a class property to global Registry state. Automatically subscribes on connect and unsubscribes on disconnect. When the global state changes, the property updates and the component re-renders automatically:
 
 ```typescript
 import { Component, Register, Consumer, html } from '@aegis-framework/pandora';
@@ -945,30 +972,30 @@ class ThemeToggle extends Component {
     };
   }
 
-  didMount() {
-    // Subscribe to theme changes
+  async didMount() {
+    // Only runs once — safe for subscriptions and listeners
     this._unsubscribe = Registry.subscribe('theme', (newTheme) => {
       this.setState({ theme: newTheme });
       this.forceRender();
     });
 
-    // Bind click event using event helpers
     this.on('click', () => this.toggleTheme());
-
-    return Promise.resolve();
   }
 
-  willUnmount() {
+  async willUnmount() {
     // Clean up subscription
     if (this._unsubscribe) {
       this._unsubscribe();
     }
-    return Promise.resolve();
   }
 
   toggleTheme() {
     const newTheme = this.state.theme === 'light' ? 'dark' : 'light';
     Registry.setState('theme', newTheme);
+  }
+
+  async onStateUpdate() {
+    this.forceRender();
   }
 
   render() {
@@ -1053,8 +1080,8 @@ For direct browser usage without a bundler:
     didMount() {
       this.on('click', () => {
         this.setState({ count: this.state.count + 1 });
+        this.forceRender();
       });
-      return Promise.resolve();
     }
 
     render() {

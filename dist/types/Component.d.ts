@@ -15,6 +15,11 @@ declare class Component<P extends Properties = Properties, S extends Properties 
     _connected: boolean;
     _isReady: boolean;
     _style: Style;
+    _updatingProps: boolean;
+    _renderId: number;
+    _propsProxy: P | null;
+    _stateProxy: S | null;
+    _hasBeenMounted: boolean;
     static _tag?: string;
     static _template?: string | ((context: any) => string | TemplateResult | typeof nothing | Promise<string | TemplateResult | typeof nothing>);
     static _observedAttributes: string[];
@@ -91,6 +96,11 @@ declare class Component<P extends Properties = Properties, S extends Properties 
      * Returns whether the component has completed its initial mount cycle.
      */
     get isReady(): boolean;
+    /**
+     * Returns whether this is the first time the component is being mounted.
+     * Useful in didMount() to avoid adding duplicate event listeners on reconnect.
+     */
+    get isFirstMount(): boolean;
     /**
        * register - Register the component as a custom HTML element
        * using the component's tag as the actual element tag.
@@ -245,12 +255,20 @@ declare class Component<P extends Properties = Properties, S extends Properties 
      */
     willMount(): Promise<void>;
     /**
-     * Called after the component is mounted to the DOM.
-     * Override this method to perform actions after the component is rendered.
+     * Called after the component is mounted to the DOM for the first time.
+     * Use this for one-time setup: event listeners, subscriptions, intervals, etc.
+     * This will NOT be called on reconnect — use didReconnect() for that.
      *
      * @returns A promise that resolves when the post-mount logic completes
      */
     didMount(): Promise<void>;
+    /**
+     * Called after the component is re-inserted into the DOM (not on first mount).
+     * Use this for reconnect-specific logic: refreshing data, re-syncing state, etc.
+     *
+     * @returns A promise that resolves when the reconnect logic completes
+     */
+    didReconnect(): Promise<void>;
     /**
      * Called before the component is removed from the DOM.
      * Override this method to perform cleanup before unmounting.

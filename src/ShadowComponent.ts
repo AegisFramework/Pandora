@@ -77,6 +77,8 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
   public override async _render(): Promise<void> {
     type RenderResult = string | TemplateResult | typeof nothing;
 
+    const renderId = ++this._renderId;
+
     // Default to render(), but use template() if a static template was defined
     let renderFn: () => RenderResult | Promise<RenderResult> = this.render;
 
@@ -86,6 +88,11 @@ class ShadowComponent<P extends Properties = Properties, S extends Properties = 
 
     // Call the render function asynchronously
     let result = await callAsync(renderFn, this);
+
+    // Bail if a newer render has started
+    if (renderId !== this._renderId) {
+      return;
+    }
 
     // Determine render type for middleware
     const renderType: 'string' | 'lit' = isTemplateResult(result) || result === nothing ? 'lit' : 'string';

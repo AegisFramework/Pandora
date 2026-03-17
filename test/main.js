@@ -598,18 +598,18 @@ class AsyncRenderDemo extends Component {
 	}
 
 	async render() {
-		if (this.state.loading) {
+		if (this._state.loading) {
 			// Simulate async data fetch
 			await new Promise(resolve => setTimeout(resolve, 1000));
-			this.state.data = { message: 'Data loaded!' };
-			this.state.loading = false;
+			this._state.data = { message: 'Data loaded!' };
+			this._state.loading = false;
 		}
 
 		return html`
 			<div class="async-demo">
-				${this.state.loading
+				${this._state.loading
 					? html`<span>Loading...</span>`
-					: html`<span>${this.state.data.message}</span>`
+					: html`<span>${this._state.data.message}</span>`
 				}
 			</div>
 		`;
