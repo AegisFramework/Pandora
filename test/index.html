@@ -317,8 +317,25 @@
 		async-static-template,
 		slot-content-demo,
 		middleware-demo,
-		async-render-demo {
+		async-render-demo,
+		reactive-counter,
+		change-logger,
+		ready-demo,
+		batch-demo,
+		score-display,
+		classlist-demo,
+		lifecycle-event-demo,
+		slot-demo {
 			display: block;
+		}
+
+		.demo-active {
+			outline: 2px solid var(--color-success);
+			outline-offset: 4px;
+		}
+
+		.demo-highlighted {
+			background: #fff9c4;
 		}
 
 		.async-template-demo {
@@ -410,21 +427,21 @@
 				</div>
 			</div>
 
-			<h2>Decorators</h2>
+			<h2>Decorator Equivalents (Non-Decorator Path)</h2>
 			<div class="grid">
 				<div class="card">
-					<h3>@Register Decorator</h3>
+					<h3>Registry.register()</h3>
 					<decorated-component></decorated-component>
 				</div>
 
 				<div class="card">
-					<h3>@Consumer Decorator</h3>
+					<h3>Consumer Pattern (manual subscribe)</h3>
 					<p>Bound to Registry.getState('app.message')</p>
 					<consumer-demo></consumer-demo>
 				</div>
 
 				<div class="card">
-					<h3>@Prop Decorator</h3>
+					<h3>Prop Pattern (observedAttributes)</h3>
 					<prop-demo label="Custom Label" custom-attr="Custom Value"></prop-demo>
 				</div>
 			</div>
@@ -505,6 +522,81 @@
 						<button onclick="removeCounter()">Remove Counter</button>
 					</div>
 					<div class="dynamic-container"></div>
+				</div>
+			</div>
+
+			<h2>New API Features</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>reactive() (No Decorators)</h3>
+					<p>Auto-render via reactive() in willMount</p>
+					<reactive-counter></reactive-counter>
+				</div>
+
+				<div class="card">
+					<h3>didChange() Hook</h3>
+					<p>Single interception point for all field changes</p>
+					<change-logger></change-logger>
+				</div>
+
+				<div class="card">
+					<h3>ready() Callback</h3>
+					<p>Call methods on dynamic elements after mount</p>
+					<button onclick="createReadyElement()">Create Element</button>
+					<div class="ready-container" style="margin-top:0.5rem;"></div>
+				</div>
+
+				<div class="card">
+					<h3>batch() Updates</h3>
+					<p>Defer @Watch/didChange until batch completes</p>
+					<batch-demo></batch-demo>
+				</div>
+
+				<div class="card">
+					<h3>Container Component</h3>
+					<p>void render preserves HTML children</p>
+					<container-demo style="display:block;padding:0.5rem;background:#e8f5e9;border-radius:4px;">
+						<strong>I'm a child element!</strong>
+						<p style="margin:0.25rem 0;font-size:0.85rem;">Container's render() returns void — I survive.</p>
+					</container-demo>
+				</div>
+			</div>
+
+			<h2>Latest Additions</h2>
+			<div class="grid">
+				<div class="card">
+					<h3>Typed State</h3>
+					<p>Type-safe global state with subscribe</p>
+					<div style="display:flex;gap:1rem;align-items:center;">
+						<button onclick="incrementScore()">+10 Score</button>
+						<score-display></score-display>
+					</div>
+				</div>
+
+				<div class="card">
+					<h3>CSS Class Toggle (didChange)</h3>
+					<p>Toggle classes based on reactive fields</p>
+					<classlist-demo></classlist-demo>
+				</div>
+
+				<div class="card">
+					<h3>Lifecycle Events</h3>
+					<p>Components emit pandora:ready / pandora:unmount</p>
+					<div class="button-group">
+						<button onclick="addLifecycleComponent()">Add Component</button>
+						<button onclick="removeLifecycleComponent()">Remove Component</button>
+					</div>
+					<div class="lifecycle-event-container" style="min-height:2rem;margin-bottom:0.5rem;"></div>
+					<div class="lifecycle-event-log" style="font-size:0.8rem;color:#666;word-break:break-all;"></div>
+				</div>
+
+				<div class="card">
+					<h3>Shadow Slots</h3>
+					<p>Named and default slots in ShadowComponent</p>
+					<slot-demo>
+						<span slot="sidebar">Custom Sidebar</span>
+						<div>Main content goes here</div>
+					</slot-demo>
 				</div>
 			</div>
 		</div>

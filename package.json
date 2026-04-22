@@ -1,6 +1,6 @@
 {
 	"name": "@aegis-framework/pandora",
-	"version": "0.5.0",
+	"version": "0.6.0",
 	"description": "Aegis Framework Web Components Library",
 	"type": "module",
 	"main": "./dist/pandora.js",
@@ -13,7 +13,7 @@
 			"default": "./dist/pandora.js"
 		},
 		"./browser": {
-			"types": "./dist/types/index.d.ts",
+			"types": "./dist/types/browser.d.ts",
 			"import": "./dist/pandora.browser.js",
 			"default": "./dist/pandora.browser.js"
 		}
@@ -48,7 +48,9 @@
 		"check": "tsc --noEmit",
 		"lint": "eslint ./src/**/*.ts",
 		"clean": "rm -rf dist",
-		"test": "bun test/index.html"
+		"test": "cypress run --component",
+		"test:e2e": "cypress run --e2e",
+		"test:open": "cypress open"
 	},
 	"dependencies": {
 		"lit-html": "^3.0.0"
@@ -59,9 +61,11 @@
 		"@typescript-eslint/eslint-plugin": "^8.48.1",
 		"@typescript-eslint/parser": "^8.48.1",
 		"bun": "^1.3.3",
+		"cypress": "^15.12.0",
 		"eslint": "^9.39.1",
 		"typescript": "^5.9.3",
-		"typescript-eslint": "^8.48.1"
+		"typescript-eslint": "^8.48.1",
+		"vite": "^6"
 	},
 	"files": [
 		"dist/",

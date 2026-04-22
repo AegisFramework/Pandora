@@ -1,4 +1,4 @@
-const style = (props) => `
+const style = (component) => `
 	/* ==============================
 	 * Responsive Navigation
 	 *
@@ -125,7 +125,7 @@ const style = (props) => `
 			text-decoration: none;
 	}
 
-	@media (min-width: ${props['phablet-breakpoint']}) {
+	@media (min-width: ${component.getAttribute('phablet-breakpoint') || '601px'}) {
 		:host([phablet="top"]) {
 			display: flex;
 			overflow: hidden;
@@ -228,7 +228,7 @@ const style = (props) => `
 
 	}
 
-	@media (min-width: ${props['tablet-breakpoint']}) {
+	@media (min-width: ${component.getAttribute('tablet-breakpoint') || '992px'}) {
 		:host([tablet="top"]) {
 			display: flex;
 			overflow: hidden;
@@ -331,7 +331,7 @@ const style = (props) => `
 
 	}
 
-	@media (min-width: ${props['desktop-breakpoint']}) {
+	@media (min-width: ${component.getAttribute('desktop-breakpoint') || '1200px'}) {
 		:host([desktop="top"]) {
 			display: flex;
 			overflow: hidden;
@@ -433,7 +433,7 @@ const style = (props) => `
 		}
 	}
 
-	@media (min-width: ${props['desktop-large-breakpoint']}) {
+	@media (min-width: ${component.getAttribute('desktop-large-breakpoint') || '1900px'}) {
 		:host([desktop-large="top"]) {
 			display: flex;
 			overflow: hidden;
@@ -538,72 +538,37 @@ const style = (props) => `
 
 class ResponsiveNavigation extends Pandora.ShadowComponent {
 
-	constructor () {
-		super ();
-
-		this.props = {
-			'title': '',
-			'logo': '',
-			'items': [],
-			'active': false,
-
-			// Behaviors
-			'phone': 'top',
-			'phablet': 'top',
-			'tablet': 'side',
-			'desktop': 'side',
-			'desktop-large': 'side',
-			'retina': 'side',
-			'fixed': false,
-			'side': 'left',
-
-			// Breakpoints
-			'phone-breakpoint': '480px',
-			'phablet-breakpoint': '601px',
-			'tablet-breakpoint': '992px',
-			'desktop-breakpoint': '1200px',
-			'desktop-large-breakpoint': '1900px',
-			'retina-breakpoint': '2500px',
-		};
-
-	}
+	// Plain class fields instead of this.props = {...}
+	items = [];
 
 	willMount () {
-		this.setStyle (style (this.props));
-		return Promise.resolve ();
+		this.setStyle(style(this));
+		return Promise.resolve();
 	}
 
 	didMount () {
-		console.log (this.shadowRoot);
-		console.log (this.shadowRoot.querySelector('.menu-icon'));
 		this.shadowRoot.querySelector('.menu-icon').onclick = () => {
-			this.setProps({
-				active: this.props.active !== 'true'
-			});
+			const isActive = this.getAttribute('active') !== 'true';
+			this.setAttribute('active', String(isActive));
 		};
-		return Promise.resolve ();
+
+		return Promise.resolve();
 	}
 
-  onPropsUpdate (property, oldValue, newValue, oldObject, newObject) {
-    console.log (property, oldValue, newValue, oldObject, newObject);
-    if (property === 'items') {
-      this.forceRender();
-    }
-    return Promise.resolve ();
-  }
-
 	render () {
-    console.log (this.props.items);
+		const logo = this.getAttribute('logo') || '';
+		const title = this.getAttribute('title') || '';
+
 		return `
-			${ this.props.logo || this.props.title ? `
+			${ logo || title ? `
 				<header>
-					${ this.props.logo ? `<img src="${this.props.logo}" class="logo">` : '' }
-					${ this.props.title ? `<h1 class="title">${this.props.title}</h1>` : '' }
+					${ logo ? `<img src="${logo}" class="logo">` : '' }
+					${ title ? `<h1 class="title">${title}</h1>` : '' }
 				</header>
 			`: '' }
 			<i class="menu-icon">Menu</i>
 			<ul>
-				${this.props.items.map (item => `
+				${this.items.map(item => `
 					<li>
 						${ item.link ? `<a href="${item.link}">` : '' }
 							${ item.icon ? `<img  src="${item.icon}" class="icon">`: '' }
@@ -611,7 +576,7 @@ class ResponsiveNavigation extends Pandora.ShadowComponent {
 							${ item.link ? '</a>' : '' }
 					</li>
 
-				`).join ('')}
+				`).join('')}
 			</ul>
 		`;
 	}
