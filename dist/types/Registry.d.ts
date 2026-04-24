@@ -59,6 +59,7 @@ declare class Registry {
     private static errorCallbacks;
     private static aliases;
     private static lazyLoaders;
+    private static lazyLoadPromises;
     private static middleware;
     /** Flipped true on the first `_init()` call so subsequent entry points skip re-wiring Component hooks. @internal */
     private static _initialized;

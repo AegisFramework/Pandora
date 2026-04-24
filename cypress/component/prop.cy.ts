@@ -67,6 +67,34 @@ describe('@Attribute and @Property decorators', () => {
     });
   });
 
+  it('uses pre-existing HTML attributes instead of overwriting them with field defaults', () => {
+    const tag = uniqueTag('prop');
+
+    @Register(tag)
+    class TestComp extends Component {
+      @Attribute() label = 'default';
+      @Attribute() active = false;
+      render() {
+        return html`
+          <span class="label">${this.label}</span>
+          <span class="active">${String(this.active)}</span>
+        `;
+      }
+    }
+
+    cy.then(() => {
+      const root = document.querySelector('[data-cy-root]')!;
+      root.innerHTML = `<${tag} label="from-html" active></${tag}>`;
+    });
+    cy.get(tag, { timeout: 10000 }).should(($el) => {
+      expect(($el[0] as any).isReady).to.be.true;
+    });
+    cy.get(`${tag} .label`).should('have.text', 'from-html');
+    cy.get(`${tag} .active`).should('have.text', 'true');
+    cy.get(tag).should('have.attr', 'label', 'from-html');
+    cy.get(tag).should('have.attr', 'active', '');
+  });
+
   it('honors a custom attribute name provided to @Attribute', () => {
     const tag = uniqueTag('prop');
 

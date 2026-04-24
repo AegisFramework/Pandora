@@ -56,6 +56,12 @@ class ShadowComponent extends Component {
   protected static override _styleSheet: CSSStyleSheet | null = null;
 
   /**
+   * @internal
+   * Class-wide object-form style declarations backing the shared stylesheet.
+   */
+  protected static override _sharedStyle: Style = {};
+
+  /**
    * Attaches an open shadow root to the host element and stores it for use
    * by the query, style, and render helpers. You generally don't call this
    * directly — the browser constructs your component when the tag appears
@@ -98,13 +104,18 @@ class ShadowComponent extends Component {
     let cssText = '';
 
     if (typeof style === 'object') {
-      if (!reset) {
-        this._style = { ...this._style, ...style };
-      } else {
-        this._style = { ...style };
+      if (!Object.hasOwn(staticComponent, '_sharedStyle')) {
+        staticComponent._sharedStyle = {};
       }
 
-      cssText = deserializeCSS(this._style);
+      if (!reset) {
+        staticComponent._sharedStyle = { ...staticComponent._sharedStyle, ...style };
+      } else {
+        staticComponent._sharedStyle = { ...style };
+      }
+
+      this._style = staticComponent._sharedStyle;
+      cssText = deserializeCSS(staticComponent._sharedStyle);
     } else if (typeof style === 'string') {
       if (!reset) {
         const existingRules = Array.from(staticComponent._styleSheet.cssRules || [])
@@ -114,6 +125,8 @@ class ShadowComponent extends Component {
         cssText = existingRules + '\n' + style;
       } else {
         cssText = style;
+        staticComponent._sharedStyle = {};
+        this._style = {};
       }
     }
 
@@ -121,7 +134,7 @@ class ShadowComponent extends Component {
 
     this._shadowDOM.adoptedStyleSheets = [staticComponent._styleSheet];
 
-    return this._style;
+    return staticComponent._sharedStyle;
   }
 
   /**

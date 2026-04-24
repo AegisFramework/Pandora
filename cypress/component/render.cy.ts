@@ -87,6 +87,21 @@ describe('Render and batching', () => {
     cy.get(`${tag} .child`).should('have.text', 'inner');
   });
 
+  it('projects captured light DOM into the slot position for string renders', () => {
+    const tag = uniqueTag('render');
+
+    @Register(tag)
+    class ContainerComp extends Component {
+      render() {
+        return `<div class="shell"><slot></slot></div><p class="after">after</p>`;
+      }
+    }
+
+    cy.mount(tag, '<span class="child">inner</span>');
+    cy.get(`${tag} .shell > .child`).should('have.text', 'inner');
+    cy.get(`${tag} > .child`).should('not.exist');
+  });
+
   it('defers @Watch callbacks until the batch closes, preserving assignment order', () => {
     const tag = uniqueTag('render');
     const watchCalls: Array<[string, unknown]> = [];

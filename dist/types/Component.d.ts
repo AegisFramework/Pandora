@@ -144,6 +144,14 @@ declare class Component extends HTMLElement {
      */
     protected static _styleSheet: CSSStyleSheet | null;
     /**
+     * Object-form style declarations shared across every instance of this tag.
+     * `setStyle()` writes to this class-level store because the stylesheet itself
+     * is class-wide.
+     *
+     * @internal
+     */
+    protected static _sharedStyle: Style;
+    /**
      * Set by `Registry._init` to notify the registry whenever an instance
      * finishes `connectedCallback`. Left unset when the registry isn't loaded.
      *

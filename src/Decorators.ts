@@ -5,6 +5,7 @@ import {
   ATTR_HANDLERS, SUBSCRIBE_HANDLERS,
   addDecoratorEffect, addTeardown, parseAttributeValue,
 } from './Util';
+
 import type { AttrHandler, SubscribeHandler } from './Types';
 import { Style } from './Types';
 
@@ -59,10 +60,12 @@ export function Register(tagName: string, options?: RegisterOptions) {
     // copied metadata onto the constructor yet, so we read from `context.metadata`
     // directly — that's the only reference that reflects field decorators.
     const meta = context.metadata as Record<symbol, unknown> | undefined;
+
     if (meta?.[PROP_ATTRIBUTES]) {
       if (!Object.hasOwn(constructor, '_observedAttributes')) {
         (constructor as any)._observedAttributes = [];
       }
+
       for (const attr of meta[PROP_ATTRIBUTES] as string[]) {
         if (!(constructor as any)._observedAttributes.includes(attr)) {
           (constructor as any)._observedAttributes.push(attr);
@@ -119,6 +122,7 @@ export function Register(tagName: string, options?: RegisterOptions) {
 export function Style(css: Style | string) {
   return function <T extends ComponentConstructor>(constructor: T, context: ClassDecoratorContext): T {
     const meta = context.metadata as Record<symbol, unknown>;
+
     meta[STYLE_METADATA] = css;
     return constructor;
   };
@@ -179,9 +183,14 @@ export function Watch(property: string) {
     // — by the time the first instance constructs, every field has registered.
     let warned = false;
     context.addInitializer(function (this: unknown) {
-      if (warned) return;
+      if (warned) {
+        return;
+      }
+
       warned = true;
+
       const reactiveFields = meta[REACTIVE_FIELDS] as Set<string> | undefined;
+
       if (!reactiveFields || !reactiveFields.has(property)) {
         const ctorName = (this as { constructor?: { name?: string } })?.constructor?.name ?? '<anonymous>';
         console.warn(
@@ -200,17 +209,23 @@ export function Watch(property: string) {
  * @internal
  */
 function getWatchersForProperty(instance: DecoratorInstance, propertyKey: string): Array<(newVal: unknown, oldVal: unknown) => void> {
-  if (typeof Symbol.metadata === 'undefined') return [];
+  if (typeof Symbol.metadata === 'undefined') {
+    return [];
+  }
 
   const meta = ((instance.constructor as any)[Symbol.metadata]) as Record<symbol, unknown> | undefined;
   const entries = meta?.[WATCH_HANDLERS] as WatchEntry[] | undefined;
-  if (!entries) return [];
+
+  if (!entries) {
+    return [];
+  }
 
   const callbacks: Array<(newVal: unknown, oldVal: unknown) => void> = [];
 
   for (const entry of entries) {
     if (entry.property === propertyKey) {
       const method = (instance as any)[entry.methodName];
+
       if (typeof method === 'function') {
         callbacks.push(method.bind(instance));
       }
@@ -302,6 +317,7 @@ export function State(options?: StateOptions) {
       const inherited = meta[REACTIVE_FIELDS] as Set<string> | undefined;
       meta[REACTIVE_FIELDS] = inherited ? new Set(inherited) : new Set();
     }
+
     (meta[REACTIVE_FIELDS] as Set<string>).add(propertyKey);
 
     addDecoratorEffect(meta, (instance) => {
@@ -455,6 +471,7 @@ export function Property(options?: PropertyOptions) {
       const inherited = meta[REACTIVE_FIELDS] as Set<string> | undefined;
       meta[REACTIVE_FIELDS] = inherited ? new Set(inherited) : new Set();
     }
+
     (meta[REACTIVE_FIELDS] as Set<string>).add(propertyKey);
 
     if (attrName !== false) {
@@ -466,6 +483,7 @@ export function Property(options?: PropertyOptions) {
         const inherited = meta[PROP_ATTRIBUTES] as string[] | undefined;
         meta[PROP_ATTRIBUTES] = inherited ? [...inherited] : [];
       }
+
       if (!(meta[PROP_ATTRIBUTES] as string[]).includes(attrName)) {
         (meta[PROP_ATTRIBUTES] as string[]).push(attrName);
       }
@@ -475,24 +493,33 @@ export function Property(options?: PropertyOptions) {
       addDecoratorEffect(meta, (instance) => {
         applyPropEffect(instance as DecoratorInstance, attrName, propertyKey, valueKey, settingKey, false, customEquals);
         if (defaultCaptured && (instance as DecoratorInstance)[valueKey] === undefined) {
-          (instance as DecoratorInstance)[valueKey] = classDefault;
-          syncToAttribute(instance as DecoratorInstance, attrName, classDefault);
+          if ((instance as DecoratorInstance).hasAttribute(attrName)) {
+            (instance as DecoratorInstance)[valueKey] = parseAttributeValue((instance as DecoratorInstance).getAttribute(attrName));
+          } else {
+            (instance as DecoratorInstance)[valueKey] = classDefault;
+            syncToAttribute(instance as DecoratorInstance, attrName, classDefault);
+          }
         }
       });
 
       context.addInitializer(function (this: unknown) {
         const instance = this as DecoratorInstance;
         const initialValue = instance[propertyKey as keyof typeof instance];
+        const hasInitialAttribute = instance.hasAttribute(attrName);
+        const initialAttributeValue = hasInitialAttribute ? parseAttributeValue(instance.getAttribute(attrName)) : undefined;
 
         applyPropEffect(instance, attrName, propertyKey, valueKey, settingKey, false, customEquals);
 
-        if (initialValue !== undefined) {
+        if (initialValue !== undefined && !defaultCaptured) {
+          classDefault = initialValue;
+          defaultCaptured = true;
+        }
+
+        if (hasInitialAttribute) {
+          instance[valueKey] = initialAttributeValue;
+        } else if (initialValue !== undefined) {
           instance[valueKey] = initialValue;
           syncToAttribute(instance, attrName, initialValue);
-          if (!defaultCaptured) {
-            classDefault = initialValue;
-            defaultCaptured = true;
-          }
         }
       });
     } else {
@@ -500,6 +527,7 @@ export function Property(options?: PropertyOptions) {
       // so we ride `applyStateEffect` for `@Watch` plumbing alone.
       addDecoratorEffect(meta, (instance) => {
         applyStateEffect(instance as DecoratorInstance, propertyKey, valueKey, false, 'property', customEquals);
+
         if (defaultCaptured && (instance as DecoratorInstance)[valueKey] === undefined) {
           (instance as DecoratorInstance)[valueKey] = classDefault;
         }
@@ -564,6 +592,7 @@ export function Attribute(attributeNameOrOptions?: string | AttributeOptions) {
 
     let attrName: string;
     let shouldRender = true;
+
     if (typeof attributeNameOrOptions === 'object') {
       attrName = propertyKey;
       shouldRender = attributeNameOrOptions.render !== false;
@@ -590,6 +619,7 @@ export function Attribute(attributeNameOrOptions?: string | AttributeOptions) {
         const inherited = meta[PROP_ATTRIBUTES] as string[] | undefined;
         meta[PROP_ATTRIBUTES] = inherited ? [...inherited] : [];
       }
+
       if (!(meta[PROP_ATTRIBUTES] as string[]).includes(attrName)) {
         (meta[PROP_ATTRIBUTES] as string[]).push(attrName);
       }
@@ -599,24 +629,33 @@ export function Attribute(attributeNameOrOptions?: string | AttributeOptions) {
       addDecoratorEffect(meta, (instance) => {
         applyPropEffect(instance as DecoratorInstance, attrName as string, propertyKey, valueKey, settingKey, shouldRender);
         if (defaultCaptured && (instance as DecoratorInstance)[valueKey] === undefined) {
-          (instance as DecoratorInstance)[valueKey] = classDefault;
-          syncToAttribute(instance as DecoratorInstance, attrName as string, classDefault);
+          if ((instance as DecoratorInstance).hasAttribute(attrName as string)) {
+            (instance as DecoratorInstance)[valueKey] = parseAttributeValue((instance as DecoratorInstance).getAttribute(attrName as string));
+          } else {
+            (instance as DecoratorInstance)[valueKey] = classDefault;
+            syncToAttribute(instance as DecoratorInstance, attrName as string, classDefault);
+          }
         }
       });
 
       context.addInitializer(function (this: unknown) {
         const instance = this as DecoratorInstance;
         const initialValue = instance[propertyKey as keyof typeof instance];
+        const hasInitialAttribute = instance.hasAttribute(attrName);
+        const initialAttributeValue = hasInitialAttribute ? parseAttributeValue(instance.getAttribute(attrName)) : undefined;
 
         applyPropEffect(instance, attrName as string, propertyKey, valueKey, settingKey, shouldRender);
 
-        if (initialValue !== undefined) {
+        if (initialValue !== undefined && !defaultCaptured) {
+          classDefault = initialValue;
+          defaultCaptured = true;
+        }
+
+        if (hasInitialAttribute) {
+          instance[valueKey] = initialAttributeValue;
+        } else if (initialValue !== undefined) {
           instance[valueKey] = initialValue;
           syncToAttribute(instance, attrName as string, initialValue);
-          if (!defaultCaptured) {
-            classDefault = initialValue;
-            defaultCaptured = true;
-          }
         }
       });
     }
@@ -652,6 +691,7 @@ function registerAttrHandler(meta: Record<symbol, unknown>, handler: AttrHandler
     const inherited = meta[ATTR_HANDLERS] as AttrHandler[] | undefined;
     meta[ATTR_HANDLERS] = inherited ? [...inherited] : [];
   }
+
   (meta[ATTR_HANDLERS] as AttrHandler[]).push(handler);
 }
 
@@ -697,9 +737,11 @@ function applyPropEffect(
       if (instance[valueKey] !== undefined) {
         return instance[valueKey];
       }
+
       if (instance.hasAttribute(attrName)) {
         return parseAttributeValue(instance.getAttribute(attrName));
       }
+
       return undefined;
     },
     set(newVal: unknown) {
@@ -731,14 +773,19 @@ function applyPropEffect(
         if ((instance as any)._batching) {
           const changes = (instance as any)._batchedChanges as Array<{ property: string; oldValue: unknown; newValue: unknown; shouldRender: boolean; source: string }>;
           const existing = changes.find((c: any) => c.property === propertyKey);
+
           if (existing) {
             existing.newValue = newVal;
-            if (shouldRender) existing.shouldRender = true;
+
+            if (shouldRender) {
+              existing.shouldRender = true;
+            }
           } else {
             changes.push({ property: propertyKey, oldValue: oldVal, newValue: newVal, shouldRender, source: 'prop' });
           }
         } else {
           const watchers = getWatchersForProperty(instance, propertyKey);
+
           for (const watcher of watchers) {
             watcher(newVal, oldVal);
           }
@@ -808,6 +855,7 @@ export function Subscribe(stateKey: string) {
       const inherited = meta[REACTIVE_FIELDS] as Set<string> | undefined;
       meta[REACTIVE_FIELDS] = inherited ? new Set(inherited) : new Set();
     }
+
     (meta[REACTIVE_FIELDS] as Set<string>).add(propertyKey);
 
     // We stash subscription handlers on class metadata so the prototype's
@@ -818,6 +866,7 @@ export function Subscribe(stateKey: string) {
       const inherited = meta[SUBSCRIBE_HANDLERS] as SubscribeHandler[] | undefined;
       meta[SUBSCRIBE_HANDLERS] = inherited ? [...inherited] : [];
     }
+
     (meta[SUBSCRIBE_HANDLERS] as SubscribeHandler[]).push({ stateKey, propertyKey, unsubKey, valueKey });
 
     addDecoratorEffect(meta, (instance) => {
@@ -851,10 +900,15 @@ function applyConsumerEffect(
     },
     set(newVal: unknown) {
       const oldVal = instance[valueKey];
-      if (oldVal === newVal) return;
+
+      if (oldVal === newVal) {
+        return;
+      }
+
       instance[valueKey] = newVal;
       Registry.setState(stateKey, newVal);
       instance.didChange(propertyKey, oldVal, newVal, 'consumer');
+
       if (instance.isReady) {
         (instance as any)._queueRender();
       }
@@ -915,6 +969,7 @@ export function Query(selector: string) {
     const propertyKey = String(context.name);
 
     const meta = context.metadata as Record<symbol, unknown>;
+
     addDecoratorEffect(meta, (instance) => {
       applyQueryEffect(instance as unknown as Component, propertyKey, selector);
     });
@@ -956,6 +1011,7 @@ export function QueryAll(selector: string) {
     const propertyKey = String(context.name);
 
     const meta = context.metadata as Record<symbol, unknown>;
+
     addDecoratorEffect(meta, (instance) => {
       applyQueryAllEffect(instance as unknown as Component, propertyKey, selector);
     });
@@ -1037,6 +1093,7 @@ export function Slot(name?: string) {
     const slotSelector = name ? `slot[name="${name}"]` : 'slot:not([name])';
 
     const meta = context.metadata as Record<symbol, unknown>;
+
     addDecoratorEffect(meta, (instance) => {
       applySlotEffect(instance as unknown as Component, propertyKey, slotSelector);
     });
@@ -1224,6 +1281,7 @@ function applyComputedEffect(
         instance[cacheKey] = originalGetter.call(instance);
         instance[validKey] = true;
       }
+
       return instance[cacheKey];
     },
     enumerable: true,
@@ -1303,6 +1361,7 @@ export function ClassList(map: ClassListMap) {
       const originalDidChange = constructor.prototype.didChange;
       constructor.prototype.didChange = function (this: Component, prop: string, oldVal: unknown, newVal: unknown, source?: string) {
         originalDidChange?.call(this, prop, oldVal, newVal, source);
+
         for (const { className, conditionFn } of functionMappings) {
           this.classList.toggle(className, conditionFn(this));
         }
@@ -1312,9 +1371,11 @@ export function ClassList(map: ClassListMap) {
     const originalConnected = constructor.prototype.connectedCallback;
     constructor.prototype.connectedCallback = async function (this: Component) {
       await originalConnected?.call(this);
+
       for (const { className, propertyName } of propertyMappings) {
         this.classList.toggle(className, !!(this as any)[propertyName]);
       }
+
       for (const { className, conditionFn } of functionMappings) {
         this.classList.toggle(className, conditionFn(this));
       }
@@ -1361,6 +1422,7 @@ export function Emitter(eventName: string) {
     const propertyKey = String(context.name);
 
     const meta = context.metadata as Record<symbol, unknown>;
+
     addDecoratorEffect(meta, (instance) => {
       applyEmitterEffect(instance as unknown as Component, propertyKey, eventName);
     });

@@ -143,6 +143,28 @@ describe('Registry — register, evolve, alias, instantiate', () => {
     cy.get(`${aliasTag}.fresh-alias .v`, { timeout: 2000 }).should('have.text', 'v2');
   });
 
+  it('alias() created after evolve() uses the active implementation', () => {
+    const tag = uniqueTag('registry');
+    const aliasTag = `${tag}-alias`;
+
+    class V1 extends Component {
+      render() { return html`<span class="v">v1</span>`; }
+    }
+    Registry.register(tag, V1 as any);
+
+    class V2 extends Component {
+      render() { return html`<span class="v">v2</span>`; }
+    }
+
+    cy.then(() => {
+      Registry.evolve(tag, V2 as any, false);
+      Registry.alias(aliasTag, tag);
+    });
+
+    cy.mount(aliasTag);
+    cy.get(`${aliasTag} .v`).should('have.text', 'v2');
+  });
+
   it('evolve() upgrades instances created after the swap even when rerender is skipped', () => {
     const tag = uniqueTag('registry');
 
@@ -291,6 +313,31 @@ describe('Registry — register, evolve, alias, instantiate', () => {
     // Both the original tag and its alias should now render v2.
     cy.get(`${tag} .ver`).should('have.text', 'v2');
     cy.get(`${aliasTag} .ver`).should('have.text', 'v2');
+  });
+
+  it('lazy() shares one in-flight loader across concurrent first mounts', () => {
+    const tag = uniqueTag('registry-lazy');
+    let loadCount = 0;
+
+    class RealComp extends Component {
+      render() { return html`<span class="lazy">loaded</span>`; }
+    }
+
+    Registry.lazy(tag, async () => {
+      loadCount++;
+      await new Promise(resolve => setTimeout(resolve, 50));
+      return RealComp as any;
+    });
+
+    cy.then(() => {
+      const root = document.querySelector('[data-cy-root]')!;
+      root.innerHTML = `<${tag}></${tag}><${tag}></${tag}>`;
+    });
+
+    cy.get(`${tag} .lazy`, { timeout: 10000 }).should('have.length', 2);
+    cy.then(() => {
+      expect(loadCount).to.equal(1);
+    });
   });
 
   it('deferred @Register records the tag but waits for Registry.define() to install the element', () => {

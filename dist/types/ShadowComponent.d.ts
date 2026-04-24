@@ -51,6 +51,11 @@ declare class ShadowComponent extends Component {
      */
     protected static _styleSheet: CSSStyleSheet | null;
     /**
+     * @internal
+     * Class-wide object-form style declarations backing the shared stylesheet.
+     */
+    protected static _sharedStyle: Style;
+    /**
      * Attaches an open shadow root to the host element and stores it for use
      * by the query, style, and render helpers. You generally don't call this
      * directly — the browser constructs your component when the tag appears

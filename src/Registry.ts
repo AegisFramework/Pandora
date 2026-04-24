@@ -69,6 +69,7 @@ class Registry {
   private static errorCallbacks: Set<ErrorCallback> = new Set();
   private static aliases: Record<string, string> = {};
   private static lazyLoaders: Record<string, ComponentLoader> = {};
+  private static lazyLoadPromises: Partial<Record<string, Promise<void>>> = {};
 
   private static middleware: Record<MiddlewareType, Set<Middleware>> = {
     render: new Set()
@@ -971,7 +972,7 @@ class Registry {
     // it, but it otherwise inherits everything from the original. Later
     // evolve() calls on the original can be fanned out to the alias through
     // the implementations map.
-    const OriginalClass = this.components[originalTag];
+    const OriginalClass = this.getImplementation(originalTag) ?? this.components[originalTag];
 
     const AliasClass = class extends (OriginalClass as typeof Component) {
       static _tag = aliasTag;
@@ -1089,6 +1090,10 @@ class Registry {
    * @internal
    */
   static async _loadLazyComponent(tag: string): Promise<void> {
+    if (this.lazyLoadPromises[tag]) {
+      return this.lazyLoadPromises[tag];
+    }
+
     if (!(tag in this.lazyLoaders)) {
       return;
     }
@@ -1096,22 +1101,28 @@ class Registry {
     const loader = this.lazyLoaders[tag];
     this.log(`Loading lazy component: <${tag}>`);
 
-    try {
-      const result = await loader();
-      const componentClass = 'default' in result ? result.default : result;
+    this.lazyLoadPromises[tag] = (async () => {
+      try {
+        const result = await loader();
+        const componentClass = 'default' in result ? result.default : result;
 
-      // One-shot: drop the loader so subsequent connects skip the fetch
-      // and go straight to the implementation swap.
-      delete this.lazyLoaders[tag];
+        // One-shot: drop the loader so subsequent connects skip the fetch
+        // and go straight to the implementation swap.
+        delete this.lazyLoaders[tag];
 
-      this.implementations[tag] = componentClass;
-      componentClass._registered = true;
+        this.implementations[tag] = componentClass;
+        componentClass._registered = true;
 
-      this.log(`Loaded lazy component: <${tag}>`);
-    } catch (error) {
-      console.error(`[Pandora] Failed to load lazy component <${tag}>:`, error);
-      throw error;
-    }
+        this.log(`Loaded lazy component: <${tag}>`);
+      } catch (error) {
+        console.error(`[Pandora] Failed to load lazy component <${tag}>:`, error);
+        throw error;
+      } finally {
+        delete this.lazyLoadPromises[tag];
+      }
+    })();
+
+    return this.lazyLoadPromises[tag];
   }
 
   /**

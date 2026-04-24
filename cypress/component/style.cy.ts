@@ -36,4 +36,59 @@ describe('@Style decorator', () => {
     cy.mount(tag);
     cy.get(tag).should('have.css', 'display', 'flex');
   });
+
+  it('merges object-form setStyle calls across light-DOM instances of the same component', () => {
+    const tag = uniqueTag('style');
+
+    @Register(tag)
+    class TestComp extends Component {
+      render(): void {}
+    }
+
+    cy.then(() => {
+      const root = document.querySelector('[data-cy-root]')!;
+      root.innerHTML = `<${tag}></${tag}><${tag}></${tag}>`;
+    });
+
+    cy.get(tag).should('have.length', 2);
+    cy.get(tag).then(($els) => {
+      ($els[0] as unknown as TestComp).setStyle({ '.one': { color: 'red' } });
+      ($els[1] as unknown as TestComp).setStyle({ '.two': { color: 'blue' } });
+
+      const rules = Array.from(document.adoptedStyleSheets)
+        .flatMap(sheet => Array.from(sheet.cssRules))
+        .map(rule => rule.cssText)
+        .join('\n');
+
+      expect(rules).to.include(`${tag} .one`);
+      expect(rules).to.include(`${tag} .two`);
+    });
+  });
+
+  it('merges object-form setStyle calls across shadow instances of the same component', () => {
+    const tag = uniqueTag('style');
+
+    @Register(tag)
+    class TestComp extends ShadowComponent {
+      render(): void {}
+    }
+
+    cy.then(() => {
+      const root = document.querySelector('[data-cy-root]')!;
+      root.innerHTML = `<${tag}></${tag}><${tag}></${tag}>`;
+    });
+
+    cy.get(tag).should('have.length', 2);
+    cy.get(tag).then(($els) => {
+      ($els[0] as unknown as TestComp).setStyle({ '.one': { color: 'red' } });
+      ($els[1] as unknown as TestComp).setStyle({ '.two': { color: 'blue' } });
+
+      const rules = Array.from(($els[0] as unknown as TestComp).shadowRoot.adoptedStyleSheets[0].cssRules)
+        .map(rule => rule.cssText)
+        .join('\n');
+
+      expect(rules).to.include('.one');
+      expect(rules).to.include('.two');
+    });
+  });
 });

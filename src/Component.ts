@@ -165,6 +165,15 @@ class Component extends HTMLElement {
    */
   protected static _styleSheet: CSSStyleSheet | null = null;
 
+  /**
+   * Object-form style declarations shared across every instance of this tag.
+   * `setStyle()` writes to this class-level store because the stylesheet itself
+   * is class-wide.
+   *
+   * @internal
+   */
+  protected static _sharedStyle: Style = {};
+
   // Registry integration hooks
 
   /**
@@ -249,22 +258,31 @@ class Component extends HTMLElement {
     }
 
     const inst = instance as unknown as Record<symbol, unknown>;
+
     // Tear down any prior subscription occupying this handler's slot so
     // repeated activations don't double-fire on state changes.
     if (inst[handler.unsubKey]) {
       (inst[handler.unsubKey] as () => void)();
       inst[handler.unsubKey] = undefined;
     }
+
     inst[handler.unsubKey] = Component._subscribe(handler.stateKey, (newVal: unknown) => {
       const oldVal = inst[handler.valueKey];
-      if (oldVal === newVal) return;
+
+      if (oldVal === newVal) {
+        return;
+      }
+
       inst[handler.valueKey] = newVal;
       instance.didChange(handler.propertyKey, oldVal, newVal, 'consumer');
+
       if (instance.isReady) {
         (instance as unknown as { _queueRender: () => void })._queueRender();
       }
     });
+
     const current = Component._getGlobalState?.(handler.stateKey);
+
     if (current !== undefined) {
       inst[handler.valueKey] = current;
     }
@@ -291,10 +309,12 @@ class Component extends HTMLElement {
     if (typeof Symbol.metadata !== 'undefined') {
       const meta = (this as any)[Symbol.metadata];
       const metaAttrs = meta?.[PROP_ATTRIBUTES] as string[] | undefined;
+
       if (metaAttrs?.length) {
         return [...new Set([...this._observedAttributes, ...metaAttrs])];
       }
     }
+
     return this._observedAttributes;
   }
 
@@ -333,11 +353,13 @@ class Component extends HTMLElement {
     if (typeof this._tag === 'undefined') {
       let tag = this.name;
       const matches = tag.match(/([A-Z])/g);
+
       if (matches !== null) {
         for (const match of matches) {
           tag = tag.replace(match, `-${match}`.toLowerCase());
         }
       }
+
       this._tag = tag.slice(1);
     }
 
@@ -609,17 +631,23 @@ class Component extends HTMLElement {
         for (const { property, oldValue, newValue, shouldRender, source } of changes) {
           // Drop net no-ops (A → B → A within the same batch) so watchers
           // and didChange never observe a change that ultimately didn't happen.
-          if (oldValue === newValue) continue;
+          if (oldValue === newValue) {
+            continue;
+          }
 
-          if (shouldRender) hasRenderableChange = true;
+          if (shouldRender) {
+            hasRenderableChange = true;
+          }
 
           if (typeof Symbol.metadata !== 'undefined') {
             const meta = ((this.constructor as any)[Symbol.metadata]) as Record<symbol, unknown> | undefined;
             const entries = meta?.[WATCH_HANDLERS] as Array<{ property: string; methodName: string }> | undefined;
+
             if (entries) {
               for (const entry of entries) {
                 if (entry.property === property) {
                   const method = (this as any)[entry.methodName];
+
                   if (typeof method === 'function') {
                     method.call(this, newValue, oldValue);
                   }
@@ -654,13 +682,19 @@ class Component extends HTMLElement {
    * @internal
    */
   protected _queueRender(): void {
-    if (this._renderQueued || !this._connected) return;
+    if (this._renderQueued || !this._connected) {
+      return;
+    }
+
     this._renderQueued = true;
+
     queueMicrotask(() => {
       this._renderQueued = false;
+
       if (this._connected) {
         this._render().catch((error: Error) => {
           const tag = (this.constructor as typeof Component).tag;
+
           if (Component._onError) {
             Component._onError(error, this, tag, 'render');
           } else {
@@ -736,6 +770,7 @@ class Component extends HTMLElement {
       this.innerHTML = '';
       this.setAttribute('data-lit-rendered', '');
     }
+
     litRender(result, this, { host: this });
   }
 
@@ -753,13 +788,20 @@ class Component extends HTMLElement {
       return;
     }
 
-    const slot = this.querySelector('slot');
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    const slot = template.content.querySelector('slot');
+
     if (slot !== null) {
-      const template = document.createElement('template');
-      template.innerHTML = html;
-      slot.replaceWith(template.content);
+      const content = document.createElement('template');
+      content.innerHTML = this._children;
+      slot.replaceWith(content.content);
+      this.innerHTML = '';
+      this.appendChild(template.content);
     } else {
       this.innerHTML = html;
+
       if (this._children !== '' && html.indexOf(this._children) === -1) {
         this.innerHTML += this._children;
       }
@@ -787,6 +829,7 @@ class Component extends HTMLElement {
         if (typeof ctor._template === 'function') {
           return ctor._template.call(this, this);
         }
+
         return ctor._template as string;
       };
     }
@@ -794,7 +837,9 @@ class Component extends HTMLElement {
     let result = await callAsync(renderFn, this);
 
     // A newer render started while we were awaiting; let it win.
-    if (renderId !== this._renderId) return;
+    if (renderId !== this._renderId) {
+      return;
+    }
 
     // void / null means "don't touch the DOM" (container components rely on
     // this to preserve their HTML-defined children), but we still re-bind
@@ -871,12 +916,17 @@ class Component extends HTMLElement {
     let cssText = '';
 
     if (typeof style === 'object') {
-      if (!reset) {
-        this._style = { ...this._style, ...style };
-      } else {
-        this._style = { ...style };
+      if (!Object.hasOwn(staticComponent, '_sharedStyle')) {
+        staticComponent._sharedStyle = {};
       }
-      cssText = deserializeCSS(this._style, staticComponent.tag);
+
+      if (!reset) {
+        staticComponent._sharedStyle = { ...staticComponent._sharedStyle, ...style };
+      } else {
+        staticComponent._sharedStyle = { ...style };
+      }
+      this._style = staticComponent._sharedStyle;
+      cssText = deserializeCSS(staticComponent._sharedStyle, staticComponent.tag);
     } else if (typeof style === 'string') {
       if (!reset) {
         const existingRules = Array.from(staticComponent._styleSheet.cssRules || [])
@@ -885,6 +935,8 @@ class Component extends HTMLElement {
         cssText = existingRules + '\n' + style;
       } else {
         cssText = style;
+        staticComponent._sharedStyle = {};
+        this._style = {};
       }
     }
 
@@ -894,7 +946,7 @@ class Component extends HTMLElement {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, staticComponent._styleSheet];
     }
 
-    return this._style;
+    return staticComponent._sharedStyle;
   }
 
   /*
@@ -1538,8 +1590,13 @@ class Component extends HTMLElement {
       if (!resolvedTarget) continue;
 
       const eventOpts: AddEventListenerOptions = {};
-      if (opts?.capture) eventOpts.capture = true;
-      if (opts?.passive) eventOpts.passive = true;
+      if (opts?.capture) {
+        eventOpts.capture = true;
+      }
+
+      if (opts?.passive) {
+        eventOpts.passive = true;
+      }
 
       // For delegated listeners we implement `once` ourselves: the native
       // `once` option would fire on the first event to bubble through,
@@ -1547,13 +1604,16 @@ class Component extends HTMLElement {
       // "once it actually matches," so we remove the listener by hand after
       // the first matching dispatch.
       let handler: EventListener;
+
       if (opts?.delegate) {
         const delegateSelector = opts.delegate;
         const shouldOnce = opts?.once;
         handler = ((event: Event) => {
           const match = (event.target as Element)?.closest(delegateSelector);
+
           if (match) {
             boundHandler(event);
+
             if (shouldOnce) {
               resolvedTarget.removeEventListener(listener.event, handler, eventOpts);
               this._activeListeners = this._activeListeners.filter(l => l.handler !== handler);
@@ -1581,6 +1641,7 @@ class Component extends HTMLElement {
     for (const { target, event, handler, options } of this._activeListeners) {
       target.removeEventListener(event, handler, options);
     }
+
     this._activeListeners = [];
   }
 }

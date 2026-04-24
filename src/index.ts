@@ -1,35 +1,51 @@
+import Component from './Component';
+import ShadowComponent from './ShadowComponent';
+import Registry from './Registry';
+import {
+  Register,
+  Subscribe,
+  Attribute,
+  Property,
+  State,
+  Computed,
+  Watch,
+  Query,
+  QueryAll,
+  Slot,
+  Listen,
+  Emitter,
+  Style,
+  ClassList,
+} from './Decorators';
+import { reactive, addDecoratorEffect, addTeardown } from './Util';
+import { createState } from './TypedState';
+import * as testing from './Testing';
+import * as Util from './Util';
+import * as Types from './Types';
+import { html, svg, nothing, noChange, render } from 'lit-html';
+
 // Core components
-export { default as Component } from './Component';
-export { default as ShadowComponent } from './ShadowComponent';
-export { default as Registry } from './Registry';
+export { Component, ShadowComponent, Registry };
 
 // Decorators
-export { Register, Subscribe, Attribute, Property, State, Computed, Watch, Query, QueryAll, Slot, Listen, Emitter, Style, ClassList } from './Decorators';
+export { Register, Subscribe, Attribute, Property, State, Computed, Watch, Query, QueryAll, Slot, Listen, Emitter, Style, ClassList };
 
 // Reactive primitives (for custom decorator authors)
-export { reactive, addDecoratorEffect, addTeardown } from './Util';
+export { reactive, addDecoratorEffect, addTeardown };
 
 // Typed global state
-export { createState, type TypedState } from './TypedState';
+export { createState };
+export type { TypedState } from './TypedState';
 
 // Testing utilities
-export * as testing from './Testing';
+export { testing };
 
 // Re-exports from lit-html
-export {
-  html,
-  svg,
-  nothing,
-  noChange,
-  render,
-  type TemplateResult,
-  type SVGTemplateResult,
-  type RenderOptions
-} from 'lit-html';
+export { html, svg, nothing, noChange, render };
+export type { TemplateResult, SVGTemplateResult, RenderOptions } from 'lit-html';
 
 // Types
-export * as Util from './Util';
-export * as Types from './Types';
+export { Util, Types };
 
 export type {
   Style as StyleObject, CSSValue, CSSProperties, CSSObject,
