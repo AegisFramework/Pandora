@@ -225,7 +225,7 @@ class Registry {
     // would throw. Passing the registered class as new.target satisfies
     // the browser while still running source's constructor body.
     try {
-      const registeredClass = customElements.get(source.tag) ?? source;
+      const registeredClass = customElements.get(instance.localName) ?? (instance.constructor as ComponentClass) ?? source;
       const temp = Reflect.construct(source, [], registeredClass) as unknown as Record<string, unknown>;
       for (const key of Object.keys(temp)) {
         if (!(key in inst) || inst[key] === undefined) {
@@ -273,6 +273,16 @@ class Registry {
         }
       }
     }
+
+    // The swap rebinds methods and reassigns metadata, so any `@Listen`
+    // handlers attached against the previous implementation are now stale:
+    // they still point at the old method functions, and listeners newly
+    // declared by `source` aren't bound at all. Detaching here (which also
+    // clears the per-connection attach flag) makes the render that always
+    // follows an implementation swap re-attach the full listener set —
+    // host/window/document and selector targets alike — against the new
+    // methods and metadata. It's a no-op for instances not yet rendered.
+    (instance as unknown as { _detachListeners(): void })._detachListeners();
   }
 
   /**

@@ -106,6 +106,16 @@ class Component extends HTMLElement {
   protected _renderQueued: boolean;
 
   /**
+   * The kind of output (`'string'` or `'lit'`) applied by the last render that
+   * actually wrote to the DOM. Lets `_render` detect a switch between string
+   * and lit-html output and reset the render root so the incoming renderer
+   * starts from a clean slate instead of inheriting the other's stale nodes.
+   *
+   * @internal
+   */
+  protected _lastRenderType?: 'string' | 'lit';
+
+  /**
    * The object-form style currently applied through `setStyle`. Persisted so
    * that merge-mode updates can layer new rules on top of previous ones.
    *
@@ -660,8 +670,10 @@ class Component extends HTMLElement {
         }
 
         // Only queue a render if at least one flushed change was actually
-        // render-eligible — `@State({ render: false })` fields skip it.
-        if (hasRenderableChange && this._connected) {
+        // render-eligible — `@State({ render: false })` fields skip it. We gate
+        // on `_initRenderDone` too (matching the per-field setters) so a batch
+        // run during `willMount` doesn't paint before the initial render lands.
+        if (hasRenderableChange && this._initRenderDone && this._connected) {
           this._queueRender();
         }
       }
@@ -809,6 +821,23 @@ class Component extends HTMLElement {
   }
 
   /**
+   * Resets the render root so the other renderer can take over cleanly when a
+   * component switches between string and lit-html output. A string render
+   * overwrites `innerHTML`, destroying the marker nodes lit-html tracks; its
+   * leftover cached part would then throw on the next lit render. We clear the
+   * host, drop the `data-lit-rendered` marker, and delete lit-html's cached
+   * root part (`_$litPart$`) so the next lit render re-initializes instead of
+   * reusing stale markers. `ShadowComponent` overrides this for its root.
+   *
+   * @internal
+   */
+  protected _resetRenderRoot(): void {
+    this.innerHTML = '';
+    this.removeAttribute('data-lit-rendered');
+    delete (this as unknown as Record<string, unknown>)['_$litPart$'];
+  }
+
+  /**
    * Runs a single render cycle: resolves the template, applies middleware,
    * writes to the DOM, and re-attaches `@Listen` handlers. Bumps `_renderId`
    * up front so any concurrent render that awaited through ours detects it
@@ -845,8 +874,7 @@ class Component extends HTMLElement {
     // this to preserve their HTML-defined children), but we still re-bind
     // @Listen handlers and run didRender so consumers see consistent hooks.
     if (result === undefined || result === null) {
-      this._detachListeners();
-      this._attachListeners();
+      this._syncListenersAfterRender();
       await callAsync(this.didRender, this);
       return;
     }
@@ -857,17 +885,30 @@ class Component extends HTMLElement {
       result = Component._applyMiddleware('render', this, result, renderType) as RenderResult;
     }
 
-    if (isTemplateResult(result) || result === nothing) {
+    // Re-derive the kind after middleware, which may have swapped a string for
+    // a TemplateResult (or vice versa), then drive both the mode-switch reset
+    // and the apply branch off the same decision.
+    const isLit = isTemplateResult(result) || result === nothing;
+    const appliedType: 'string' | 'lit' = isLit ? 'lit' : 'string';
+
+    // A switch between string and lit output leaves the previous renderer's
+    // bookkeeping dangling, so wipe the root before the new renderer writes.
+    if (this._lastRenderType !== undefined && this._lastRenderType !== appliedType) {
+      this._resetRenderRoot();
+    }
+
+    if (isLit) {
       this._applyLitRender(result as TemplateResult | typeof nothing);
     } else {
       this._applyStringRender((result as string).trim());
     }
 
-    // Rebind @Listen handlers on every render: selector-targeted listeners
-    // may have pointed at nodes that this render replaced, so stale bindings
-    // need to be swapped out for fresh ones.
-    this._detachListeners();
-    this._attachListeners();
+    this._lastRenderType = appliedType;
+
+    // Refresh @Listen handlers after the render: selector-targeted listeners
+    // may have pointed at nodes this render replaced, so they're re-resolved,
+    // while host/window/document listeners (and fired one-shots) stay put.
+    this._syncListenersAfterRender();
 
     await callAsync(this.didRender, this);
   }
@@ -1352,13 +1393,16 @@ class Component extends HTMLElement {
         }
       }
 
-      // Apply `@Style` metadata once, on the first mount of any instance of
-      // this tag — the stylesheet is shared across instances so later mounts
-      // don't need to reapply it.
-      if (firstMount && typeof Symbol.metadata !== 'undefined') {
+      // Apply `@Style` metadata once per class, not once per instance. The
+      // stylesheet is shared across every instance of the tag, so reapplying it
+      // with `reset: true` on each new instance's first mount would wipe any
+      // runtime `setStyle()` merges made by earlier instances. The own-property
+      // guard makes sure only the very first instance seeds the shared sheet.
+      if (firstMount && typeof Symbol.metadata !== 'undefined' && !Object.hasOwn(ctor, '_styleMetaApplied')) {
         const meta = (ctor as any)[Symbol.metadata];
         const styleData = meta?.[STYLE_METADATA];
         if (styleData) {
+          (ctor as unknown as { _styleMetaApplied: boolean })._styleMetaApplied = true;
           this.setStyle(styleData as Style | string, true);
         }
       }
@@ -1544,96 +1588,206 @@ class Component extends HTMLElement {
    */
 
   /**
-   * The set of `@Listen` bindings currently wired up on this instance.
-   * We track them explicitly so `_detachListeners` can remove the exact
-   * `(target, event, handler, options)` triples we registered — this matters
-   * on disconnect and between renders, when listener targets may have been
-   * replaced.
+   * The `@Listen` bindings currently wired up on this instance. We track them
+   * explicitly so we can remove the exact `(target, event, handler, options)`
+   * triples we registered. `dynamic` flags a binding whose target is a CSS
+   * selector — a node a render can replace — so only those are re-cycled
+   * between renders; `index` ties a binding back to its metadata entry so a
+   * one-shot listener can be recorded as consumed.
    *
    * @internal
    */
-  private _activeListeners: Array<{ target: EventTarget; event: string; handler: EventListener; options?: boolean | AddEventListenerOptions }> = [];
+  private _activeListeners: Array<{ target: EventTarget; event: string; handler: EventListener; options?: boolean | AddEventListenerOptions; dynamic: boolean; index: number }> = [];
 
   /**
-   * Walks `@Listen` metadata and wires up the described listeners against
-   * their resolved targets. We resolve selectors at attach time (not at
-   * decoration time) because the target nodes may only exist after a render
-   * has populated the component's subtree.
+   * Whether the full `@Listen` set has been attached for the current
+   * connection. Host, window, and document listeners are attached once per
+   * connect and left in place across re-renders; only selector-targeted ones
+   * are refreshed. Reset to `false` on disconnect.
+   *
+   * @internal
+   */
+  private _listenersAttached: boolean = false;
+
+  /**
+   * Indices of `@Listen` entries whose `once` has already fired during the
+   * current connection. Consulted before (re-)binding so a one-shot listener
+   * is never re-armed by a subsequent re-render. Cleared on disconnect, so a
+   * reconnect arms one-shot listeners afresh.
+   *
+   * @internal
+   */
+  private _consumedOnceListeners: Set<number> = new Set();
+
+  /**
+   * Reads the `@Listen` metadata array for this instance's class, or
+   * `undefined` when there are none (or metadata is unavailable).
+   *
+   * @internal
+   */
+  protected _listenerMetadata(): Array<{ event: string; methodName: string; options?: { target?: string; delegate?: string; capture?: boolean; passive?: boolean; once?: boolean } }> | undefined {
+    if (typeof Symbol.metadata === 'undefined') return undefined;
+
+    const meta = ((this.constructor as any)[Symbol.metadata]) as Record<symbol, unknown> | undefined;
+    return meta?.[LISTEN_HANDLERS] as Array<{ event: string; methodName: string; options?: { target?: string; delegate?: string; capture?: boolean; passive?: boolean; once?: boolean } }> | undefined;
+  }
+
+  /**
+   * Whether a listener targets a CSS selector — an element a render can
+   * replace — rather than a stable target (the host, window, or document).
+   * Only selector-targeted listeners are re-cycled between renders.
+   *
+   * @internal
+   */
+  private static _isDynamicListenerTarget(target?: string): boolean {
+    return !!(target && target !== 'self' && target !== 'window' && target !== 'document');
+  }
+
+  /**
+   * Binds a single `@Listen` entry to its resolved target and records it in
+   * `_activeListeners`. Skips one-shot listeners already consumed this
+   * connection, listeners whose method is missing, and selector targets not
+   * yet in the DOM. Returns whether a binding was attached.
+   *
+   * @internal
+   */
+  protected _bindListener(
+    listener: { event: string; methodName: string; options?: { target?: string; delegate?: string; capture?: boolean; passive?: boolean; once?: boolean } },
+    index: number
+  ): boolean {
+    const opts = listener.options;
+
+    // A one-shot listener that already fired this connection must not be
+    // re-armed when a later render refreshes the listener set.
+    if (opts?.once && this._consumedOnceListeners.has(index)) return false;
+
+    const method = (this as any)[listener.methodName];
+    if (typeof method !== 'function') return false;
+
+    const dynamic = Component._isDynamicListenerTarget(opts?.target);
+    const resolvedTarget = resolveListenerTarget(this, opts?.target, (s) => this.query(s));
+    if (!resolvedTarget) return false;
+
+    const boundHandler = method.bind(this) as EventListener;
+
+    const eventOpts: AddEventListenerOptions = {};
+    if (opts?.capture) {
+      eventOpts.capture = true;
+    }
+
+    if (opts?.passive) {
+      eventOpts.passive = true;
+    }
+
+    let handler: EventListener;
+
+    if (opts?.delegate) {
+      // For delegated listeners we implement `once` ourselves: the native
+      // `once` option would fire on the first event to bubble through,
+      // regardless of whether it matched the delegate selector. We want
+      // "once it actually matches," so we retire the listener — and record it
+      // as consumed — after the first matching dispatch.
+      const delegateSelector = opts.delegate;
+      const shouldOnce = opts?.once;
+      handler = ((event: Event) => {
+        const match = (event.target as Element)?.closest(delegateSelector);
+
+        if (match) {
+          if (shouldOnce) {
+            this._consumedOnceListeners.add(index);
+            resolvedTarget.removeEventListener(listener.event, handler, eventOpts);
+            this._activeListeners = this._activeListeners.filter(l => l.handler !== handler);
+          }
+
+          boundHandler(event);
+        }
+      }) as EventListener;
+    } else if (opts?.once) {
+      // Native one-shot: the browser auto-removes after the first fire, but we
+      // wrap it to record the listener as consumed and keep `_activeListeners`
+      // accurate so a later re-render won't re-arm it.
+      handler = ((event: Event) => {
+        this._consumedOnceListeners.add(index);
+        this._activeListeners = this._activeListeners.filter(l => l.handler !== handler);
+        boundHandler(event);
+      }) as EventListener;
+      eventOpts.once = true;
+    } else {
+      handler = boundHandler;
+    }
+
+    resolvedTarget.addEventListener(listener.event, handler, eventOpts);
+    this._activeListeners.push({ target: resolvedTarget, event: listener.event, handler, options: eventOpts, dynamic, index });
+    return true;
+  }
+
+  /**
+   * Wires up every `@Listen` binding. Called once per connection (on the first
+   * render). Selectors are resolved at attach time, not at decoration time,
+   * because the target nodes may only exist after a render has populated the
+   * component's subtree.
    *
    * @internal
    */
   protected _attachListeners(): void {
-    if (typeof Symbol.metadata === 'undefined') return;
-
-    const meta = ((this.constructor as any)[Symbol.metadata]) as Record<symbol, unknown> | undefined;
-    const listeners = meta?.[LISTEN_HANDLERS] as Array<{
-      event: string;
-      methodName: string;
-      options?: {
-        target?: string;
-        delegate?: string;
-        capture?: boolean;
-        passive?: boolean;
-        once?: boolean;
-      };
-    }> | undefined;
-
+    const listeners = this._listenerMetadata();
     if (!listeners) return;
 
-    for (const listener of listeners) {
-      const method = (this as any)[listener.methodName];
-      if (typeof method !== 'function') continue;
+    listeners.forEach((listener, index) => this._bindListener(listener, index));
+  }
 
-      const boundHandler = method.bind(this) as EventListener;
-      const opts = listener.options;
-      const resolvedTarget = resolveListenerTarget(this, opts?.target, (s) => this.query(s));
-      if (!resolvedTarget) continue;
+  /**
+   * Re-cycles only the selector-targeted (`dynamic`) listeners after a
+   * re-render. Their target nodes may have been replaced by the new markup, so
+   * we detach the stale bindings and resolve fresh ones — while leaving host,
+   * window, and document listeners (and any already-fired one-shots) in place.
+   *
+   * @internal
+   */
+  protected _refreshDynamicListeners(): void {
+    const stable: typeof this._activeListeners = [];
 
-      const eventOpts: AddEventListenerOptions = {};
-      if (opts?.capture) {
-        eventOpts.capture = true;
-      }
-
-      if (opts?.passive) {
-        eventOpts.passive = true;
-      }
-
-      // For delegated listeners we implement `once` ourselves: the native
-      // `once` option would fire on the first event to bubble through,
-      // regardless of whether it matched the delegate selector. We want
-      // "once it actually matches," so we remove the listener by hand after
-      // the first matching dispatch.
-      let handler: EventListener;
-
-      if (opts?.delegate) {
-        const delegateSelector = opts.delegate;
-        const shouldOnce = opts?.once;
-        handler = ((event: Event) => {
-          const match = (event.target as Element)?.closest(delegateSelector);
-
-          if (match) {
-            boundHandler(event);
-
-            if (shouldOnce) {
-              resolvedTarget.removeEventListener(listener.event, handler, eventOpts);
-              this._activeListeners = this._activeListeners.filter(l => l.handler !== handler);
-            }
-          }
-        }) as EventListener;
+    for (const active of this._activeListeners) {
+      if (active.dynamic) {
+        active.target.removeEventListener(active.event, active.handler, active.options);
       } else {
-        handler = boundHandler;
-        if (opts?.once) eventOpts.once = true;
+        stable.push(active);
       }
+    }
 
-      resolvedTarget.addEventListener(listener.event, handler, eventOpts);
-      this._activeListeners.push({ target: resolvedTarget, event: listener.event, handler, options: eventOpts });
+    this._activeListeners = stable;
+
+    const listeners = this._listenerMetadata();
+    if (!listeners) return;
+
+    listeners.forEach((listener, index) => {
+      if (Component._isDynamicListenerTarget(listener.options?.target)) {
+        this._bindListener(listener, index);
+      }
+    });
+  }
+
+  /**
+   * Attaches `@Listen` bindings after a render: the full set on the first
+   * render of a connection, and only the selector-targeted ones on later
+   * re-renders (whose nodes the render may have replaced).
+   *
+   * @internal
+   */
+  protected _syncListenersAfterRender(): void {
+    if (this._listenersAttached) {
+      this._refreshDynamicListeners();
+    } else {
+      this._attachListeners();
+      this._listenersAttached = true;
     }
   }
 
   /**
-   * Removes every listener currently recorded in `_activeListeners` and
-   * clears the tracking array. Called on disconnect and between renders so
-   * stale bindings never outlive the nodes they pointed at.
+   * Removes every listener currently recorded in `_activeListeners`, clears the
+   * tracking array, and resets the per-connection attach state. Called on
+   * disconnect so no binding — or consumed-`once` record — outlives the
+   * connection.
    *
    * @internal
    */
@@ -1643,6 +1797,8 @@ class Component extends HTMLElement {
     }
 
     this._activeListeners = [];
+    this._listenersAttached = false;
+    this._consumedOnceListeners.clear();
   }
 }
 

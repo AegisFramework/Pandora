@@ -94,6 +94,13 @@ declare class ShadowComponent extends Component {
     protected _applyLitRender(result: TemplateResult | typeof nothing): void;
     /**
      * @internal
+     * Shadow-root variant of the render-root reset. Clears the shadow tree and
+     * drops lit-html's cached root part so a switch between string and lit output
+     * re-initializes cleanly inside the shadow root.
+     */
+    protected _resetRenderRoot(): void;
+    /**
+     * @internal
      * Shadow-root variant of the string render hook. Wipes the existing shadow
      * content and appends the parsed template so raw HTML strings render inside
      * the encapsulated tree.

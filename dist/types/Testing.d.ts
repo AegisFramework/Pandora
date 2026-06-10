@@ -28,9 +28,12 @@ export declare function flush(): Promise<void>;
 /**
  * Wait until a component reports that it is ready.
  *
- * Resolves immediately if `element.isReady` is already `true`. Otherwise,
- * polls on `requestAnimationFrame` and rejects if the component does not
- * finish its first render within `timeout` milliseconds.
+ * Resolves immediately if `element.isReady` is already `true`. Otherwise it
+ * listens for the component's `pandora:ready` event and also polls on a short
+ * timer, rejecting if the component does not finish its first render within
+ * `timeout` milliseconds. It avoids `requestAnimationFrame`, whose callbacks
+ * are suspended when the page isn't painting (headless runs, background tabs),
+ * which would otherwise hang the wait even after the component became ready.
  *
  * @param element - The component element to observe.
  * @param timeout - How long to wait before rejecting, in milliseconds. Defaults to 5000.

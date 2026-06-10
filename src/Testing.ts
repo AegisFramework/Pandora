@@ -36,9 +36,12 @@ export async function flush(): Promise<void> {
 /**
  * Wait until a component reports that it is ready.
  *
- * Resolves immediately if `element.isReady` is already `true`. Otherwise,
- * polls on `requestAnimationFrame` and rejects if the component does not
- * finish its first render within `timeout` milliseconds.
+ * Resolves immediately if `element.isReady` is already `true`. Otherwise it
+ * listens for the component's `pandora:ready` event and also polls on a short
+ * timer, rejecting if the component does not finish its first render within
+ * `timeout` milliseconds. It avoids `requestAnimationFrame`, whose callbacks
+ * are suspended when the page isn't painting (headless runs, background tabs),
+ * which would otherwise hang the wait even after the component became ready.
  *
  * @param element - The component element to observe.
  * @param timeout - How long to wait before rejecting, in milliseconds. Defaults to 5000.
@@ -55,20 +58,31 @@ export function whenReady(element: Element, timeout: number = 5000): Promise<voi
   }
 
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`Component <${element.tagName.toLowerCase()}> did not become ready within ${timeout}ms`));
-    }, timeout);
+    const cleanup = () => {
+      clearTimeout(timer);
+      clearInterval(poll);
+      element.removeEventListener('pandora:ready', onReady);
+    };
 
-    const check = () => {
+    const onReady = () => {
       if (comp.isReady) {
-        clearTimeout(timer);
+        cleanup();
         resolve();
-      } else {
-        requestAnimationFrame(check);
       }
     };
 
-    requestAnimationFrame(check);
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Component <${element.tagName.toLowerCase()}> did not become ready within ${timeout}ms`));
+    }, timeout);
+
+    // Prefer the component's own readiness event, but also poll on a timer as a
+    // fallback. We deliberately avoid `requestAnimationFrame` here: rAF callbacks
+    // are suspended when the page isn't painting (headless runs, background tabs),
+    // which would hang the wait even though the component is ready.
+    element.addEventListener('pandora:ready', onReady);
+
+    const poll = setInterval(onReady, 16);
   });
 }
 

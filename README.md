@@ -895,6 +895,8 @@ class StopwatchElement extends Component {
 | `object` / `array` | `@Property()` | Property-only -- no attribute sync, no render |
 | `function` | `@Property()` | Property-only -- no attribute sync, no render |
 
+Numeric coercion covers ordinary decimal spellings, including a leading sign and trailing zeroes -- so `42`, `+1`, `-3.14`, and `1.0` all arrive as numbers. Strings with leading zeros (`007`), scientific or hex notation (`1e3`, `0xFF`), or non-finite words (`Infinity`) are preserved as strings, so significant values like ids and zip codes survive the round trip intact.
+
 **Setting attribute-friendly props from HTML:**
 
 ```html

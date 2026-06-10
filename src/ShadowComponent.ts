@@ -149,6 +149,20 @@ class ShadowComponent extends Component {
 
   /**
    * @internal
+   * Shadow-root variant of the render-root reset. Clears the shadow tree and
+   * drops lit-html's cached root part so a switch between string and lit output
+   * re-initializes cleanly inside the shadow root.
+   */
+  protected override _resetRenderRoot(): void {
+    while (this._shadowDOM.firstChild) {
+      this._shadowDOM.firstChild.remove();
+    }
+
+    delete (this._shadowDOM as unknown as Record<string, unknown>)['_$litPart$'];
+  }
+
+  /**
+   * @internal
    * Shadow-root variant of the string render hook. Wipes the existing shadow
    * content and appends the parsed template so raw HTML strings render inside
    * the encapsulated tree.

@@ -85,6 +85,15 @@ declare class Component extends HTMLElement {
      */
     protected _renderQueued: boolean;
     /**
+     * The kind of output (`'string'` or `'lit'`) applied by the last render that
+     * actually wrote to the DOM. Lets `_render` detect a switch between string
+     * and lit-html output and reset the render root so the incoming renderer
+     * starts from a clean slate instead of inheriting the other's stale nodes.
+     *
+     * @internal
+     */
+    protected _lastRenderType?: 'string' | 'lit';
+    /**
      * The object-form style currently applied through `setStyle`. Persisted so
      * that merge-mode updates can layer new rules on top of previous ones.
      *
@@ -531,6 +540,18 @@ declare class Component extends HTMLElement {
      */
     protected _applyStringRender(html: string): void;
     /**
+     * Resets the render root so the other renderer can take over cleanly when a
+     * component switches between string and lit-html output. A string render
+     * overwrites `innerHTML`, destroying the marker nodes lit-html tracks; its
+     * leftover cached part would then throw on the next lit render. We clear the
+     * host, drop the `data-lit-rendered` marker, and delete lit-html's cached
+     * root part (`_$litPart$`) so the next lit render re-initializes instead of
+     * reusing stale markers. `ShadowComponent` overrides this for its root.
+     *
+     * @internal
+     */
+    protected _resetRenderRoot(): void;
+    /**
      * Runs a single render cycle: resolves the template, applies middleware,
      * writes to the DOM, and re-attaches `@Listen` handlers. Bumps `_renderId`
      * up front so any concurrent render that awaited through ours detects it
@@ -889,28 +910,109 @@ declare class Component extends HTMLElement {
      */
     attributeChangedCallback(property: string, _oldValue: string | null, newValue: string | null): void;
     /**
-     * The set of `@Listen` bindings currently wired up on this instance.
-     * We track them explicitly so `_detachListeners` can remove the exact
-     * `(target, event, handler, options)` triples we registered — this matters
-     * on disconnect and between renders, when listener targets may have been
-     * replaced.
+     * The `@Listen` bindings currently wired up on this instance. We track them
+     * explicitly so we can remove the exact `(target, event, handler, options)`
+     * triples we registered. `dynamic` flags a binding whose target is a CSS
+     * selector — a node a render can replace — so only those are re-cycled
+     * between renders; `index` ties a binding back to its metadata entry so a
+     * one-shot listener can be recorded as consumed.
      *
      * @internal
      */
     private _activeListeners;
     /**
-     * Walks `@Listen` metadata and wires up the described listeners against
-     * their resolved targets. We resolve selectors at attach time (not at
-     * decoration time) because the target nodes may only exist after a render
-     * has populated the component's subtree.
+     * Whether the full `@Listen` set has been attached for the current
+     * connection. Host, window, and document listeners are attached once per
+     * connect and left in place across re-renders; only selector-targeted ones
+     * are refreshed. Reset to `false` on disconnect.
+     *
+     * @internal
+     */
+    private _listenersAttached;
+    /**
+     * Indices of `@Listen` entries whose `once` has already fired during the
+     * current connection. Consulted before (re-)binding so a one-shot listener
+     * is never re-armed by a subsequent re-render. Cleared on disconnect, so a
+     * reconnect arms one-shot listeners afresh.
+     *
+     * @internal
+     */
+    private _consumedOnceListeners;
+    /**
+     * Reads the `@Listen` metadata array for this instance's class, or
+     * `undefined` when there are none (or metadata is unavailable).
+     *
+     * @internal
+     */
+    protected _listenerMetadata(): Array<{
+        event: string;
+        methodName: string;
+        options?: {
+            target?: string;
+            delegate?: string;
+            capture?: boolean;
+            passive?: boolean;
+            once?: boolean;
+        };
+    }> | undefined;
+    /**
+     * Whether a listener targets a CSS selector — an element a render can
+     * replace — rather than a stable target (the host, window, or document).
+     * Only selector-targeted listeners are re-cycled between renders.
+     *
+     * @internal
+     */
+    private static _isDynamicListenerTarget;
+    /**
+     * Binds a single `@Listen` entry to its resolved target and records it in
+     * `_activeListeners`. Skips one-shot listeners already consumed this
+     * connection, listeners whose method is missing, and selector targets not
+     * yet in the DOM. Returns whether a binding was attached.
+     *
+     * @internal
+     */
+    protected _bindListener(listener: {
+        event: string;
+        methodName: string;
+        options?: {
+            target?: string;
+            delegate?: string;
+            capture?: boolean;
+            passive?: boolean;
+            once?: boolean;
+        };
+    }, index: number): boolean;
+    /**
+     * Wires up every `@Listen` binding. Called once per connection (on the first
+     * render). Selectors are resolved at attach time, not at decoration time,
+     * because the target nodes may only exist after a render has populated the
+     * component's subtree.
      *
      * @internal
      */
     protected _attachListeners(): void;
     /**
-     * Removes every listener currently recorded in `_activeListeners` and
-     * clears the tracking array. Called on disconnect and between renders so
-     * stale bindings never outlive the nodes they pointed at.
+     * Re-cycles only the selector-targeted (`dynamic`) listeners after a
+     * re-render. Their target nodes may have been replaced by the new markup, so
+     * we detach the stale bindings and resolve fresh ones — while leaving host,
+     * window, and document listeners (and any already-fired one-shots) in place.
+     *
+     * @internal
+     */
+    protected _refreshDynamicListeners(): void;
+    /**
+     * Attaches `@Listen` bindings after a render: the full set on the first
+     * render of a connection, and only the selector-targeted ones on later
+     * re-renders (whose nodes the render may have replaced).
+     *
+     * @internal
+     */
+    protected _syncListenersAfterRender(): void;
+    /**
+     * Removes every listener currently recorded in `_activeListeners`, clears the
+     * tracking array, and resets the per-connection attach state. Called on
+     * disconnect so no binding — or consumed-`once` record — outlives the
+     * connection.
      *
      * @internal
      */

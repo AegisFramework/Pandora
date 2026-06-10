@@ -297,9 +297,16 @@ export function parseAttributeValue(value: string | null): unknown {
     return false;
   }
 
-  if (!isNaN(Number(value))) {
-    return value.includes('.') ? parseFloat(value) : parseInt(value, 10);
+  const trimmed = value.trim();
+
+  if (/^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(trimmed)) {
+    const asNumber = Number(trimmed);
+
+    if (Number.isFinite(asNumber)) {
+      return asNumber;
+    }
   }
+
   return value;
 }
 
